@@ -3,9 +3,9 @@ import { useState } from 'react';
 import { useFormContext } from 'react-hook-form';
 
 import { GrafanaTheme2 } from '@grafana/data';
+import { Trans, t } from '@grafana/i18n';
 import { config } from '@grafana/runtime';
 import { RadioButtonGroup, Stack, Text, TextLink, useStyles2 } from '@grafana/ui';
-import { Trans, t } from 'app/core/internationalization';
 import { AlertmanagerChoice } from 'app/plugins/datasource/alertmanager/types';
 
 import { alertmanagerApi } from '../../api/alertmanagerApi';
@@ -159,8 +159,20 @@ function ManualAndAutomaticRouting({ alertUid }: { alertUid?: string }) {
   const [manualRouting] = watch(['manualRouting']);
 
   const routingOptions = [
-    { label: 'Select contact point', value: RoutingOptions.ContactPoint },
-    { label: 'Use notification policy', value: RoutingOptions.NotificationPolicy },
+    {
+      label: t(
+        'alerting.manual-and-automatic-routing.routing-options.label.select-contact-point',
+        'Select contact point'
+      ),
+      value: RoutingOptions.ContactPoint,
+    },
+    {
+      label: t(
+        'alerting.manual-and-automatic-routing.routing-options.label.use-notification-policy',
+        'Use notification policy'
+      ),
+      value: RoutingOptions.NotificationPolicy,
+    },
   ];
 
   const onRoutingOptionChange = (option: RoutingOptions) => {

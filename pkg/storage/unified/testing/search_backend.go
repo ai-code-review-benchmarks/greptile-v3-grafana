@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/grafana/grafana/pkg/storage/unified/resource"
+	"github.com/grafana/grafana/pkg/storage/unified/resourcepb"
 	"github.com/grafana/grafana/pkg/util/testutil"
 )
 
@@ -74,7 +75,7 @@ func runTestSearchBackendBuildIndex(t *testing.T, backend resource.SearchBackend
 				{
 					Action: resource.ActionIndex,
 					Doc: &resource.IndexableDocument{
-						Key: &resource.ResourceKey{
+						Key: &resourcepb.ResourceKey{
 							Namespace: ns.Namespace,
 							Group:     ns.Group,
 							Resource:  ns.Resource,
@@ -120,7 +121,7 @@ func runTestResourceIndex(t *testing.T, backend resource.SearchBackend, nsPrefix
 				{
 					Action: resource.ActionIndex,
 					Doc: &resource.IndexableDocument{
-						Key: &resource.ResourceKey{
+						Key: &resourcepb.ResourceKey{
 							Namespace: ns.Namespace,
 							Group:     ns.Group,
 							Resource:  ns.Resource,
@@ -137,7 +138,7 @@ func runTestResourceIndex(t *testing.T, backend resource.SearchBackend, nsPrefix
 				{
 					Action: resource.ActionIndex,
 					Doc: &resource.IndexableDocument{
-						Key: &resource.ResourceKey{
+						Key: &resourcepb.ResourceKey{
 							Namespace: ns.Namespace,
 							Group:     ns.Group,
 							Resource:  ns.Resource,
@@ -160,9 +161,9 @@ func runTestResourceIndex(t *testing.T, backend resource.SearchBackend, nsPrefix
 	require.NotNil(t, index)
 
 	t.Run("Search", func(t *testing.T) {
-		req := &resource.ResourceSearchRequest{
-			Options: &resource.ListOptions{
-				Key: &resource.ResourceKey{
+		resp, err := index.Search(ctx, nil, &resourcepb.ResourceSearchRequest{
+			Options: &resourcepb.ListOptions{
+				Key: &resourcepb.ResourceKey{
 					Namespace: ns.Namespace,
 					Group:     ns.Group,
 					Resource:  ns.Resource,
@@ -171,10 +172,68 @@ func runTestResourceIndex(t *testing.T, backend resource.SearchBackend, nsPrefix
 			Fields: []string{"title", "folder", "tags"},
 			Query:  "tag3",
 			Limit:  10,
-		}
-		resp, err := index.Search(ctx, nil, req, nil)
+		}, nil)
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 		require.Equal(t, int64(1), resp.TotalHits) // Only doc3 should have tag3 now
+
+		// Search for Document
+		resp, err = index.Search(ctx, nil, &resourcepb.ResourceSearchRequest{
+			Options: &resourcepb.ListOptions{
+				Key: &resourcepb.ResourceKey{
+					Namespace: ns.Namespace,
+					Group:     ns.Group,
+					Resource:  ns.Resource,
+				},
+			},
+			Query:  "Document",
+			Fields: []string{"title", "folder", "tags"},
+			Limit:  10,
+		}, nil)
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		require.Equal(t, int64(2), resp.TotalHits) // Both doc1 and doc2 should have doc now
+	})
+
+	t.Run("Add a new document", func(t *testing.T) {
+		// Add a new document
+		err := index.BulkIndex(&resource.BulkIndexRequest{
+			Items: []*resource.BulkIndexItem{
+				{
+					Action: resource.ActionIndex,
+					Doc: &resource.IndexableDocument{
+						Key: &resourcepb.ResourceKey{
+							Namespace: ns.Namespace,
+							Group:     ns.Group,
+							Resource:  ns.Resource,
+							Name:      "doc3",
+						},
+						Title: "Document 3",
+						Tags:  []string{"tag3", "tag4"},
+						Fields: map[string]interface{}{
+							"field1": 3,
+							"field2": "value3",
+						},
+					},
+				},
+			},
+		})
+		require.NoError(t, err)
+		// Search for Document
+		resp, err := index.Search(ctx, nil, &resourcepb.ResourceSearchRequest{
+			Options: &resourcepb.ListOptions{
+				Key: &resourcepb.ResourceKey{
+					Namespace: ns.Namespace,
+					Group:     ns.Group,
+					Resource:  ns.Resource,
+				},
+			},
+			Query:  "Document",
+			Fields: []string{"title", "folder", "tags"},
+			Limit:  10,
+		}, nil)
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		require.Equal(t, int64(3), resp.TotalHits) // Both doc1, doc2, and doc3 should have doc now
 	})
 }

@@ -276,6 +276,10 @@ func (r *FakePluginRepo) PluginInfo(ctx context.Context, pluginID string, compat
 	return &repo.PluginInfo{}, nil
 }
 
+func (r *FakePluginRepo) GetPluginsInfo(ctx context.Context, options repo.GetPluginsInfoOptions, compatOpts repo.CompatOpts) ([]repo.PluginInfo, error) {
+	return []repo.PluginInfo{}, nil
+}
+
 type fakeTracerProvider struct {
 	noop.TracerProvider
 }
@@ -476,7 +480,7 @@ func (s *FakeSourceRegistry) List(ctx context.Context) []plugins.PluginSource {
 
 type FakePluginSource struct {
 	PluginClassFunc      func(ctx context.Context) plugins.Class
-	PluginURIsFunc       func(ctx context.Context) []string
+	DiscoverFunc         func(ctx context.Context) ([]*plugins.FoundBundle, error)
 	DefaultSignatureFunc func(ctx context.Context) (plugins.Signature, bool)
 }
 
@@ -487,11 +491,11 @@ func (s *FakePluginSource) PluginClass(ctx context.Context) plugins.Class {
 	return ""
 }
 
-func (s *FakePluginSource) PluginURIs(ctx context.Context) []string {
-	if s.PluginURIsFunc != nil {
-		return s.PluginURIsFunc(ctx)
+func (s *FakePluginSource) Discover(ctx context.Context) ([]*plugins.FoundBundle, error) {
+	if s.DiscoverFunc != nil {
+		return s.DiscoverFunc(ctx)
 	}
-	return []string{}
+	return []*plugins.FoundBundle{}, nil
 }
 
 func (s *FakePluginSource) DefaultSignature(ctx context.Context, _ string) (plugins.Signature, bool) {

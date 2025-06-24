@@ -218,6 +218,10 @@ export interface FeatureToggles {
   */
   provisioning?: boolean;
   /**
+  * Use experimental git library for provisioning
+  */
+  nanoGit?: boolean;
+  /**
   * Start an additional https handler and write kubectl options
   */
   grafanaAPIServerEnsureKubectlAccess?: boolean;
@@ -262,6 +266,7 @@ export interface FeatureToggles {
   sseGroupByDatasource?: boolean;
   /**
   * Enables RBAC support for library panels
+  * @default true
   */
   libraryPanelRBAC?: boolean;
   /**
@@ -371,10 +376,6 @@ export interface FeatureToggles {
   */
   alertmanagerRemotePrimary?: boolean;
   /**
-  * Disable the internal Alertmanager and only use the external one defined.
-  */
-  alertmanagerRemoteOnly?: boolean;
-  /**
   * Change the way annotation permissions work by scoping them to folders and dashboards.
   * @default true
   */
@@ -460,10 +461,6 @@ export interface FeatureToggles {
   */
   alertingQueryOptimization?: boolean;
   /**
-  * Enables the nested folder picker without having nested folders enabled
-  */
-  newFolderPicker?: boolean;
-  /**
   * Distributes alert rule evaluations more evenly over time, including spreading out rules within the same group. Disables sequential evaluation if enabled.
   */
   jitterAlertRulesWithinGroups?: boolean;
@@ -523,6 +520,10 @@ export interface FeatureToggles {
   * Enable grafana's embedded kube-aggregator
   */
   kubernetesAggregator?: boolean;
+  /**
+  * Enable CAP token based authentication in grafana's embedded kube-aggregator
+  */
+  kubernetesAggregatorCapTokenAuth?: boolean;
   /**
   * Enable new expression parser
   */
@@ -611,6 +612,7 @@ export interface FeatureToggles {
   authZGRPCServer?: boolean;
   /**
   * Use the new SSO Settings API to configure LDAP
+  * @default true
   */
   ssoSettingsLDAP?: boolean;
   /**
@@ -659,10 +661,6 @@ export interface FeatureToggles {
   */
   tableNextGen?: boolean;
   /**
-  * Send dashboard and panel names to Loki when querying
-  */
-  lokiSendDashboardPanelNames?: boolean;
-  /**
   * Uses Prometheus rules as the primary source of truth for ruler-enabled data sources
   */
   alertingPrometheusRulesPrimary?: boolean;
@@ -678,10 +676,6 @@ export interface FeatureToggles {
   * Used in Logs Drilldown to limit the time range
   */
   exploreLogsLimitedTimeRange?: boolean;
-  /**
-  * Used in Home for users who want to return to the onboarding flow or quickly find popular config pages
-  */
-  homeSetupGuide?: boolean;
   /**
   * Enables the gRPC client to authenticate with the App Platform by using ID & access tokens
   */
@@ -781,11 +775,6 @@ export interface FeatureToggles {
   */
   jaegerBackendMigration?: boolean;
   /**
-  * Uses the original report or dashboard time range instead of making an absolute transformation
-  * @default true
-  */
-  reportingUseRawTimeRange?: boolean;
-  /**
   * Enables removing the reducer from the alerting UI when creating a new alert rule and using instant query
   * @default true
   */
@@ -842,22 +831,17 @@ export interface FeatureToggles {
   improvedExternalSessionHandlingSAML?: boolean;
   /**
   * Enables LBAC for datasources for Mimir to apply LBAC filtering of metrics to the client requests for users in teams
+  * @default true
   */
   teamHttpHeadersMimir?: boolean;
   /**
-  * Test feature toggle to see how cohorts could be set up AB testing
-  * @default false
+  * Enables LBAC for datasources for Tempo to apply LBAC filtering of traces to the client requests for users in teams
   */
-  ABTestFeatureToggleA?: boolean;
+  teamHttpHeadersTempo?: boolean;
   /**
   * Use new **Combobox** component for template variables
   */
   templateVariablesUsesCombobox?: boolean;
-  /**
-  * Test feature toggle to see how cohorts could be set up AB testing
-  * @default false
-  */
-  ABTestFeatureToggleB?: boolean;
   /**
   * Enables Advisor app
   */
@@ -922,10 +906,6 @@ export interface FeatureToggles {
   */
   alertRuleRestore?: boolean;
   /**
-  * Enables writing to data sources for Grafana-managed recording rules.
-  */
-  grafanaManagedRecordingRulesDatasources?: boolean;
-  /**
   * Enables running Infinity queries in parallel
   */
   infinityRunQueriesInParallel?: boolean;
@@ -934,9 +914,15 @@ export interface FeatureToggles {
   */
   inviteUserExperimental?: boolean;
   /**
-  * Enables the alerting migration UI, to migrate datasource-managed rules to Grafana-managed rules
+  * Enables the alerting migration UI, to migrate data source-managed rules to Grafana-managed rules
+  * @default true
   */
   alertingMigrationUI?: boolean;
+  /**
+  * Enables a UI feature for importing rules from a Prometheus file to Grafana-managed rules
+  * @default true
+  */
+  alertingImportYAMLUI?: boolean;
   /**
   * Enables the unified storage history pruner
   * @default true
@@ -969,10 +955,6 @@ export interface FeatureToggles {
   * @default true
   */
   alertingRuleRecoverDeleted?: boolean;
-  /**
-  * Support Application Signals queries in the X-Ray datasource
-  */
-  xrayApplicationSignals?: boolean;
   /**
   * use multi-tenant path for awsTempCredentials
   */
@@ -1021,4 +1003,38 @@ export interface FeatureToggles {
   * Use proxy-based read-only objects for plugin extensions instead of deep cloning
   */
   extensionsReadOnlyProxy?: boolean;
+  /**
+  * Registers AuthZ /apis endpoint
+  */
+  kubernetesAuthzApis?: boolean;
+  /**
+  * Enables restore deleted dashboards feature
+  * @default false
+  */
+  restoreDashboards?: boolean;
+  /**
+  * Skip token rotation if it was already rotated less than 5 seconds ago
+  * @default false
+  */
+  skipTokenRotationIfRecent?: boolean;
+  /**
+  * Enable configuration of alert enrichments in Grafana Cloud.
+  * @default false
+  */
+  alertEnrichment?: boolean;
+  /**
+  * Enables the API to import Alertmanager configuration
+  * @default false
+  */
+  alertingImportAlertmanagerAPI?: boolean;
+  /**
+  * Prefer library panel title over viz panel title.
+  * @default false
+  */
+  preferLibraryPanelTitle?: boolean;
+  /**
+  * Use fixed-width numbers globally in the UI
+  * @default true
+  */
+  tabularNumbers?: boolean;
 }
