@@ -114,11 +114,14 @@ func AddKnownTypes(gv schema.GroupVersion, scheme *runtime.Scheme) error {
 		&ResourceWrapper{},
 		&FileList{},
 		&HistoryList{},
+		&RefList{},
 		&TestResults{},
 		&ResourceList{},
 		&ResourceStats{},
 		&Job{},
 		&JobList{},
+		&CreatePRResponse{},
+		&RefDiffResponse{},
 	)
 	return nil
 }

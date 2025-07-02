@@ -122,6 +122,9 @@ type RepositorySpec struct {
 	// The repository on Git.
 	// Mutually exclusive with local | github | git.
 	Git *GitRepositoryConfig `json:"git,omitempty"`
+
+	// The URL of the repository (if available)
+	URL string `json:"url,omitempty"`
 }
 
 // SyncTargetType defines where we want all values to resolve
@@ -353,6 +356,7 @@ type FileItem struct {
 	Hash     string `json:"hash,omitempty"`
 	Modified int64  `json:"modified,omitempty"`
 	Author   string `json:"author,omitempty"`
+	FileURL  string `json:"fileURL,omitempty"`
 }
 
 // Information we can get just from the file listing
@@ -453,4 +457,80 @@ type HistoryItem struct {
 	// +listType=atomic
 	Authors   []Author `json:"authors"`
 	CreatedAt int64    `json:"createdAt"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+type RefList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+
+	// +listType=atomic
+	Items []RefItem `json:"items"`
+}
+
+type RefItem struct {
+	// The name of the reference (branch or tag)
+	Name string `json:"name"`
+	// The SHA hash of the commit this ref points to
+	Hash string `json:"hash,omitempty"`
+	// The URL to the reference (branch or tag)
+	RefURL string `json:"refURL,omitempty"`
+}
+
+// CreatePRResponse is the response from creating a pull request
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+type CreatePRResponse struct {
+	metav1.TypeMeta `json:",inline"`
+	Success         bool             `json:"success"`
+	PullRequest     *PullRequestInfo `json:"pullRequest,omitempty"`
+
+	// Error message if the submission failed
+	Error string `json:"error,omitempty"`
+}
+
+type PullRequestInfo struct {
+	Number int    `json:"number"`
+	Title  string `json:"title"`
+	URL    string `json:"url"`
+	Head   string `json:"head"`
+	Base   string `json:"base"`
+}
+
+// RefDiffResponse is the response from getting a diff between refs
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+type RefDiffResponse struct {
+	metav1.TypeMeta `json:",inline"`
+	Diff            *DiffInfo `json:"diff,omitempty"`
+
+	// Error message if the diff request failed
+	Error string `json:"error,omitempty"`
+}
+
+type DiffInfo struct {
+	Head string `json:"head"`
+	Base string `json:"base"`
+	// List of changed files
+	Files []FileChange `json:"files"`
+	// List of commits between base and head
+	Commits []CommitInfo `json:"commits"`
+
+	DiffURL string `json:"diffURL,omitempty"`
+}
+
+type CommitInfo struct {
+	SHA       string `json:"sha"`
+	Message   string `json:"message"`
+	Author    string `json:"author"`
+	Timestamp int64  `json:"timestamp"`
+	CommitURL string `json:"commitURL,omitempty"`
+}
+
+type FileChange struct {
+	Path string `json:"path"`
+	// Type of change: added, modified, deleted, renamed
+	Status       string `json:"status"`
+	PreviousPath string `json:"previousPath,omitempty"` // On rename
+	FileURL      string `json:"fileURL,omitempty"`
+	// The patch/diff content for this file
+	Patch string `json:"patch,omitempty"`
 }

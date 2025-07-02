@@ -91,6 +91,8 @@ type Client interface {
 	BranchExists(ctx context.Context, owner, repository, branchName string) (bool, error)
 	// GetBranch returns the branch of the repository.
 	GetBranch(ctx context.Context, owner, repository, branchName string) (Branch, error)
+	// ListBranches returns the list of branches in the repository.
+	ListBranches(ctx context.Context, owner, repository string) ([]Branch, error)
 
 	ListWebhooks(ctx context.Context, owner, repository string) ([]WebhookConfig, error)
 	CreateWebhook(ctx context.Context, owner, repository string, cfg WebhookConfig) (WebhookConfig, error)
@@ -100,6 +102,11 @@ type Client interface {
 
 	ListPullRequestFiles(ctx context.Context, owner, repository string, number int) ([]CommitFile, error)
 	CreatePullRequestComment(ctx context.Context, owner, repository string, number int, body string) error
+
+	CreatePullRequest(ctx context.Context, owner, repository, title, body, head, base string) (*PullRequest, error)
+
+	GetDiff(ctx context.Context, owner, repository, base, head string) (*Diff, error)
+	GetCommitsBetweenRefs(ctx context.Context, owner, repository, base, head string) ([]CommitInfo, error)
 }
 
 //go:generate mockery --name RepositoryContent --structname MockRepositoryContent --inpackage --filename mock_repository_content.go --with-expecter
@@ -126,6 +133,15 @@ type RepositoryContent interface {
 type Branch struct {
 	Name string
 	Sha  string
+}
+
+type PullRequest struct {
+	Number  int
+	Title   string
+	Body    string
+	HTMLURL string
+	Head    string
+	Base    string
 }
 
 type CommitAuthor struct {
@@ -180,4 +196,22 @@ type WebhookConfig struct {
 	// The secret to use when sending events to the URL.
 	// If fetched from GitHub, this is empty as it contains no useful information.
 	Secret string
+}
+
+type Diff struct {
+	Files []DiffFile
+}
+
+type DiffFile struct {
+	Filename     string
+	Status       string
+	PreviousName string
+	Patch        string
+}
+
+type CommitInfo struct {
+	SHA       string
+	Message   string
+	Author    string
+	Timestamp int64
 }

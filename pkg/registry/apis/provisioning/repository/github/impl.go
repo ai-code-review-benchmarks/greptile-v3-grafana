@@ -69,6 +69,7 @@ const (
 	maxWebhooks                 = 100              // Maximum number of webhooks allowed per repository
 	maxPRFiles                  = 1000             // Maximum number of files allowed in a pull request
 	maxPullRequestsFileComments = 1000             // Maximum number of comments allowed in a pull request
+	maxPRs                      = 100              // Maximum number of pull requests to fetch
 	maxFileSize                 = 10 * 1024 * 1024 // 10MB in bytes
 )
 
@@ -442,6 +443,34 @@ func (r *githubClient) BranchExists(ctx context.Context, owner, repository, bran
 	return false, err
 }
 
+func (r *githubClient) ListBranches(ctx context.Context, owner, repository string) ([]Branch, error) {
+	listFn := func(ctx context.Context, opts *github.ListOptions) ([]*github.Branch, *github.Response, error) {
+		return r.gh.Repositories.ListBranches(ctx, owner, repository, &github.BranchListOptions{
+			ListOptions: *opts,
+		})
+	}
+
+	branches, err := paginatedList(
+		ctx,
+		listFn,
+		defaultListOptions(maxPRs),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert to the interface type
+	ret := make([]Branch, 0, len(branches))
+	for _, b := range branches {
+		ret = append(ret, Branch{
+			Name: b.GetName(),
+			Sha:  b.GetCommit().GetSHA(),
+		})
+	}
+
+	return ret, nil
+}
+
 func (r *githubClient) ListWebhooks(ctx context.Context, owner, repository string) ([]WebhookConfig, error) {
 	listFn := func(ctx context.Context, opts *github.ListOptions) ([]*github.Hook, *github.Response, error) {
 		return r.gh.Repositories.ListHooks(ctx, owner, repository, opts)
@@ -624,6 +653,89 @@ func (r *githubClient) CreatePullRequestComment(ctx context.Context, owner, repo
 	}
 
 	return nil
+}
+
+func (r *githubClient) CreatePullRequest(ctx context.Context, owner, repository, title, body, head, base string) (*PullRequest, error) {
+	newPR := &github.NewPullRequest{
+		Title: &title,
+		Body:  &body,
+		Head:  &head,
+		Base:  &base,
+	}
+
+	// TODO(meher): Add label `grafana/git-sync` to the pull request
+	pr, _, err := r.gh.PullRequests.Create(ctx, owner, repository, newPR)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create pull request: %w", err)
+	}
+
+	return &PullRequest{
+		Number:  pr.GetNumber(),
+		Title:   pr.GetTitle(),
+		Body:    pr.GetBody(),
+		HTMLURL: pr.GetHTMLURL(),
+		Head:    pr.GetHead().GetRef(),
+		Base:    pr.GetBase().GetRef(),
+	}, nil
+}
+
+func (r *githubClient) GetDiff(ctx context.Context, owner, repository, base, head string) (*Diff, error) {
+	// Get the comparison between base and head
+	comparison, _, err := r.gh.Repositories.CompareCommits(ctx, owner, repository, base, head, &github.ListOptions{
+		PerPage: 100, // GitHub API default limit
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get diff: %w", err)
+	}
+
+	diff := &Diff{
+		Files: make([]DiffFile, len(comparison.Files)),
+	}
+
+	for i, file := range comparison.Files {
+		diffFile := DiffFile{
+			Filename: file.GetFilename(),
+			Status:   file.GetStatus(),
+			Patch:    file.GetPatch(),
+		}
+
+		// Handle renames
+		if file.GetPreviousFilename() != "" {
+			diffFile.PreviousName = file.GetPreviousFilename()
+		}
+
+		diff.Files[i] = diffFile
+	}
+
+	return diff, nil
+}
+
+func (r *githubClient) GetCommitsBetweenRefs(ctx context.Context, owner, repository, base, head string) ([]CommitInfo, error) {
+	// Get the comparison between base and head
+	comparison, _, err := r.gh.Repositories.CompareCommits(ctx, owner, repository, base, head, &github.ListOptions{
+		PerPage: 100, // GitHub API default limit
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get commits between refs: %w", err)
+	}
+
+	commits := make([]CommitInfo, len(comparison.Commits))
+	for i, commit := range comparison.Commits {
+		commitInfo := CommitInfo{
+			SHA:     commit.GetSHA(),
+			Message: commit.GetCommit().GetMessage(),
+		}
+
+		// Get author information
+		if commit.GetCommit().GetAuthor() != nil {
+			commitInfo.Author = commit.GetCommit().GetAuthor().GetName()
+			commitInfo.Timestamp = commit.GetCommit().GetAuthor().GetDate().Unix()
+		}
+
+		commits[i] = commitInfo
+	}
+
+	return commits, nil
 }
 
 type realRepositoryContent struct {

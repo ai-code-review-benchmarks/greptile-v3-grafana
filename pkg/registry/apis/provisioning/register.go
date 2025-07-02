@@ -357,6 +357,9 @@ func (b *APIBuilder) UpdateAPIGroupInfo(apiGroupInfo *genericapiserver.APIGroupI
 		getter: b,
 	}
 	storage[provisioning.RepositoryResourceInfo.StoragePath("files")] = NewFilesConnector(b, b.parsers, b.clients, b.access)
+	storage[provisioning.RepositoryResourceInfo.StoragePath("refs")] = NewRefsConnector(b)
+	storage[provisioning.RepositoryResourceInfo.StoragePath("pr")] = NewPRsConnector(b)
+	storage[provisioning.RepositoryResourceInfo.StoragePath("diff")] = NewDiffConnector(b)
 	storage[provisioning.RepositoryResourceInfo.StoragePath("resources")] = &listConnector{
 		getter: b,
 		lister: b.resourceLister,
@@ -417,6 +420,11 @@ func (b *APIBuilder) Mutate(ctx context.Context, a admission.Attributes, o admis
 			r.Spec.GitHub.URL = strings.TrimSuffix(r.Spec.GitHub.URL, ".git")
 			r.Spec.GitHub.URL = strings.TrimSuffix(r.Spec.GitHub.URL, "/")
 		}
+
+		// Populate the URL field in the spec for GitHub repositories
+		if r.Spec.GitHub.URL != "" {
+			r.Spec.URL = r.Spec.GitHub.URL
+		}
 	}
 	if r.Spec.Type == provisioning.GitRepositoryType {
 		if r.Spec.Git == nil {
@@ -438,6 +446,11 @@ func (b *APIBuilder) Mutate(ctx context.Context, a admission.Attributes, o admis
 			if !strings.HasSuffix(r.Spec.Git.URL, ".git") {
 				r.Spec.Git.URL = r.Spec.Git.URL + ".git"
 			}
+		}
+
+		// Populate the URL field in the spec for Git repositories
+		if r.Spec.Git.URL != "" {
+			r.Spec.URL = r.Spec.Git.URL
 		}
 	}
 
@@ -786,6 +799,91 @@ func (b *APIBuilder) PostProcessOpenAPI(oas *spec3.OpenAPI) (*spec3.OpenAPI, err
 		mt := sub.Get.Responses.StatusCodeResponses[200].Content
 		s := defs[defsBase+"FileList"].Schema
 		mt["*/*"].Schema = &s
+	}
+
+	// Show refs endpoint documentation
+	sub = oas.Paths.Paths[repoprefix+"/refs"]
+	if sub != nil {
+		sub.Get.Description = "Get the repository branches and references"
+		sub.Get.Summary = "Repository refs listing"
+		sub.Get.Parameters = []*spec3.Parameter{}
+		sub.Post = nil
+		sub.Put = nil
+		sub.Delete = nil
+
+		// Replace the content type for this response
+		mt := sub.Get.Responses.StatusCodeResponses[200].Content
+		s := defs[defsBase+"RefList"].Schema
+		mt["*/*"].Schema = &s
+	}
+
+	// Show submit endpoint documentation
+	sub = oas.Paths.Paths[repoprefix+"/pr"]
+	if sub != nil {
+		sub.Post.Description = "Create a pull request from a branch"
+		sub.Post.Summary = "Create pull request"
+		sub.Post.Parameters = []*spec3.Parameter{
+			{
+				ParameterProps: spec3.ParameterProps{
+					Name:        "ref",
+					In:          "query",
+					Description: "The branch name to create a pull request from",
+					Schema:      spec.StringProperty(),
+					Required:    true,
+				},
+			},
+			{
+				ParameterProps: spec3.ParameterProps{
+					Name:        "title",
+					In:          "query",
+					Description: "The title of the pull request",
+					Schema:      spec.StringProperty(),
+					Required:    true,
+				},
+			},
+			{
+				ParameterProps: spec3.ParameterProps{
+					Name:        "content",
+					In:          "query",
+					Description: "The description/body of the pull request",
+					Schema:      spec.StringProperty(),
+					Required:    false,
+				},
+			},
+		}
+		sub.Get = nil
+		sub.Put = nil
+		sub.Delete = nil
+	}
+
+	// Show diff endpoint documentation
+	sub = oas.Paths.Paths[repoprefix+"/diff"]
+	if sub != nil {
+		sub.Get.Description = "Get diff between two refs (branches/commits)"
+		sub.Get.Summary = "Get repository diff"
+		sub.Get.Parameters = []*spec3.Parameter{
+			{
+				ParameterProps: spec3.ParameterProps{
+					Name:        "ref",
+					In:          "query",
+					Description: "The source ref (branch/commit) to compare",
+					Schema:      spec.StringProperty(),
+					Required:    true,
+				},
+			},
+			{
+				ParameterProps: spec3.ParameterProps{
+					Name:        "base",
+					In:          "query",
+					Description: "The base ref (branch/commit) to compare against. Defaults to repository's default branch",
+					Schema:      spec.StringProperty(),
+					Required:    false,
+				},
+			},
+		}
+		sub.Post = nil
+		sub.Put = nil
+		sub.Delete = nil
 	}
 
 	// update the version with a path

@@ -338,6 +338,66 @@ func (_c *MockGithubRepository_Delete_Call) RunAndReturn(run func(context.Contex
 	return _c
 }
 
+// GetDiff provides a mock function with given fields: ctx, base, head
+func (_m *MockGithubRepository) GetDiff(ctx context.Context, base string, head string) (*github.Diff, error) {
+	ret := _m.Called(ctx, base, head)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetDiff")
+	}
+
+	var r0 *github.Diff
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) (*github.Diff, error)); ok {
+		return rf(ctx, base, head)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) *github.Diff); ok {
+		r0 = rf(ctx, base, head)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*github.Diff)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
+		r1 = rf(ctx, base, head)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockGithubRepository_GetDiff_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetDiff'
+type MockGithubRepository_GetDiff_Call struct {
+	*mock.Call
+}
+
+// GetDiff is a helper method to define mock.On call
+//   - ctx context.Context
+//   - base string
+//   - head string
+func (_e *MockGithubRepository_Expecter) GetDiff(ctx interface{}, base interface{}, head interface{}) *MockGithubRepository_GetDiff_Call {
+	return &MockGithubRepository_GetDiff_Call{Call: _e.mock.On("GetDiff", ctx, base, head)}
+}
+
+func (_c *MockGithubRepository_GetDiff_Call) Run(run func(ctx context.Context, base string, head string)) *MockGithubRepository_GetDiff_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string))
+	})
+	return _c
+}
+
+func (_c *MockGithubRepository_GetDiff_Call) Return(_a0 *github.Diff, _a1 error) *MockGithubRepository_GetDiff_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockGithubRepository_GetDiff_Call) RunAndReturn(run func(context.Context, string, string) (*github.Diff, error)) *MockGithubRepository_GetDiff_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // History provides a mock function with given fields: ctx, path, ref
 func (_m *MockGithubRepository) History(ctx context.Context, path string, ref string) ([]v0alpha1.HistoryItem, error) {
 	ret := _m.Called(ctx, path, ref)
@@ -450,6 +510,64 @@ func (_c *MockGithubRepository_LatestRef_Call) Return(_a0 string, _a1 error) *Mo
 }
 
 func (_c *MockGithubRepository_LatestRef_Call) RunAndReturn(run func(context.Context) (string, error)) *MockGithubRepository_LatestRef_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// ListBranches provides a mock function with given fields: ctx
+func (_m *MockGithubRepository) ListBranches(ctx context.Context) ([]github.Branch, error) {
+	ret := _m.Called(ctx)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListBranches")
+	}
+
+	var r0 []github.Branch
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context) ([]github.Branch, error)); ok {
+		return rf(ctx)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context) []github.Branch); ok {
+		r0 = rf(ctx)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]github.Branch)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = rf(ctx)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockGithubRepository_ListBranches_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListBranches'
+type MockGithubRepository_ListBranches_Call struct {
+	*mock.Call
+}
+
+// ListBranches is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *MockGithubRepository_Expecter) ListBranches(ctx interface{}) *MockGithubRepository_ListBranches_Call {
+	return &MockGithubRepository_ListBranches_Call{Call: _e.mock.On("ListBranches", ctx)}
+}
+
+func (_c *MockGithubRepository_ListBranches_Call) Run(run func(ctx context.Context)) *MockGithubRepository_ListBranches_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context))
+	})
+	return _c
+}
+
+func (_c *MockGithubRepository_ListBranches_Call) Return(_a0 []github.Branch, _a1 error) *MockGithubRepository_ListBranches_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockGithubRepository_ListBranches_Call) RunAndReturn(run func(context.Context) ([]github.Branch, error)) *MockGithubRepository_ListBranches_Call {
 	_c.Call.Return(run)
 	return _c
 }

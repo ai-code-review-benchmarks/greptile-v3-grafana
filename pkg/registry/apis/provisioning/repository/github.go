@@ -47,6 +47,12 @@ type GithubRepository interface {
 	Owner() string
 	Repo() string
 	Client() pgh.Client
+	// TODO(meher): Should this move to an interface? Maybe BranchReader?
+	ListBranches(ctx context.Context) ([]pgh.Branch, error)
+	// Get diff between two refs
+	GetDiff(ctx context.Context, base, head string) (*pgh.Diff, error)
+	// Get commits between two refs
+	GetCommitsBetweenRefs(ctx context.Context, base, head string) ([]pgh.CommitInfo, error)
 }
 
 func NewGitHub(
@@ -532,6 +538,16 @@ func (r *githubRepository) LatestRef(ctx context.Context) (string, error) {
 	return branch.Sha, nil
 }
 
+func (r *githubRepository) ListBranches(ctx context.Context) ([]pgh.Branch, error) {
+	ctx, _ = r.logger(ctx, "")
+	branches, err := r.gh.ListBranches(ctx, r.owner, r.repo)
+	if err != nil {
+		return nil, fmt.Errorf("list branches: %w", err)
+	}
+
+	return branches, nil
+}
+
 func (r *githubRepository) CompareFiles(ctx context.Context, base, ref string) ([]VersionedFileChange, error) {
 	if ref == "" {
 		var err error
@@ -680,4 +696,48 @@ func (r *githubRepository) logger(ctx context.Context, ref string) (context.Cont
 	// We want to ensure we don't add multiple github_repository keys. With doesn't deduplicate the keys...
 	ctx = context.WithValue(ctx, containsGhKey, true)
 	return ctx, logger
+}
+
+func (r *githubRepository) GetDiff(ctx context.Context, base, head string) (*pgh.Diff, error) {
+	// Use default branch if base is not specified
+	if base == "" {
+		base = r.config.Spec.GitHub.Branch
+	}
+	// Use latest ref if head is not specified
+	if head == "" {
+		var err error
+		head, err = r.LatestRef(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("get latest ref: %w", err)
+		}
+	}
+
+	diff, err := r.gh.GetDiff(ctx, r.owner, r.repo, base, head)
+	if err != nil {
+		return nil, fmt.Errorf("get diff: %w", err)
+	}
+
+	return diff, nil
+}
+
+func (r *githubRepository) GetCommitsBetweenRefs(ctx context.Context, base, head string) ([]pgh.CommitInfo, error) {
+	// Use default branch if base is not specified
+	if base == "" {
+		base = r.config.Spec.GitHub.Branch
+	}
+	// Use latest ref if head is not specified
+	if head == "" {
+		var err error
+		head, err = r.LatestRef(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("get latest ref: %w", err)
+		}
+	}
+
+	commits, err := r.gh.GetCommitsBetweenRefs(ctx, r.owner, r.repo, base, head)
+	if err != nil {
+		return nil, fmt.Errorf("get commits between refs: %w", err)
+	}
+
+	return commits, nil
 }

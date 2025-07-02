@@ -111,6 +111,10 @@ func (r *githubRepository) LatestRef(ctx context.Context) (string, error) {
 	return r.nanogitRepo.LatestRef(ctx)
 }
 
+func (r *githubRepository) ListBranches(ctx context.Context) ([]pgh.Branch, error) {
+	return r.apiRepo.ListBranches(ctx)
+}
+
 func (r *githubRepository) CompareFiles(ctx context.Context, base, ref string) ([]repository.VersionedFileChange, error) {
 	return r.nanogitRepo.CompareFiles(ctx, base, ref)
 }
@@ -122,4 +126,12 @@ func (r *githubRepository) ResourceURLs(ctx context.Context, file *repository.Fi
 
 func (r *githubRepository) Clone(ctx context.Context, opts repository.CloneOptions) (repository.ClonedRepository, error) {
 	return r.nanogitRepo.Clone(ctx, opts)
+}
+
+func (r *githubRepository) GetDiff(ctx context.Context, base, ref string) (*pgh.Diff, error) {
+	return r.apiRepo.GetDiff(ctx, base, ref)
+}
+
+func (r *githubRepository) GetCommitsBetweenRefs(ctx context.Context, base, ref string) ([]pgh.CommitInfo, error) {
+	return r.apiRepo.GetCommitsBetweenRefs(ctx, base, ref)
 }
