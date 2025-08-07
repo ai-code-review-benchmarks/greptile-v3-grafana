@@ -1,7 +1,7 @@
 name: End-to-end tests
 
 on:
-  pull_request:
+  pull_request: 
   push:
     branches:
       - main
@@ -36,6 +36,93 @@ jobs:
         uses: ./.github/actions/change-detection
         with:
           self: .github/workflows/pr-e2e-tests.yml
+  
+  build-grafana-hosted-runners:
+    # needs: detect-changes
+    # if: needs.detect-changes.outputs.changed == 'true'
+    name: Build Grafana - ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: ["ubuntu-x64-large", "ubuntu-x64-xlarge", "ubuntu-x64-2xlarge", "ubuntu-x64-large-io", "ubuntu-x64-xlarge-io", "ubuntu-x64-2xlarge-io"]
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      # # TODO: add a cleanup workflow to remove the cache when the PR is closed
+      # # https://github.com/actions/cache/blob/main/tips-and-workarounds.md#force-deletion-of-caches-overriding-default-cache-eviction-policy
+      # # TODO: maybe we could just use the cache to store the build, instead of uploading as an artifact?
+      # - uses: actions/cache@v4
+      #   id: cache
+      #   with:
+      #     key: "build-grafana-${{ runner.os }}-${{ hashFiles('yarn.lock', 'public/*',  'packages/*', 'pkg/**/*.go', '**/go.mod', '**/go.sum', '!**_test.go', '!**.test.ts', '!**.test.tsx', 'Dockerfile') }}"
+      #     path: |
+      #       build-dir
+
+      - name: Login to DockerHub
+        uses: grafana/shared-workflows/actions/dockerhub-login@dockerhub-login/v1.0.2
+      
+      - name: Start Dagger engine
+        run: |
+          docker run -d --rm \
+            -v /var/lib/dagger \
+            -v /etc/buildkitd.toml:/etc/dagger/engine.toml \
+            --name dagger-engine-v0.18.14 \
+            --privileged \
+            registry.dagger.io/engine:v0.18.14
+
+      # If no cache hit, build Grafana
+      - name: Build Grafana
+        # if: steps.cache.outputs.cache-hit != 'true'
+        uses: dagger/dagger-for-github@e47aba410ef9bb9ed81a4d2a97df31061e5e842e
+        with:
+          verb: run
+          args: go run ./pkg/build/cmd artifacts -a targz:grafana:linux/amd64 -a docker:grafana:linux/amd64 --grafana-dir="${PWD}" > out.txt
+      - name: Cat built artifact
+        # if: steps.cache.outputs.cache-hit != 'true'
+        run: cat out.txt
+      - name: Move built artifacts
+        # if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p build-dir
+          mv "$(grep 'grafana_.*tar.gz$' out.txt | grep -Fv -m1 'docker')" build-dir/grafana.tar.gz
+          mv "$(grep 'grafana_.*docker.tar.gz$' out.txt)" build-dir/grafana.docker.tar.gz
+
+      - name: Stop Engine
+        run: docker stop -t 300 $(docker ps --filter name="dagger-engine-*" -q)
+        if: always()
+
+      # # If cache hit, validate the artifact is present
+      # - name: Validate artifact
+      #   if: steps.cache.outputs.cache-hit == 'true'
+      #   run: |
+      #     if [ ! -f build-dir/grafana.tar.gz ]; then
+      #       echo "Error: build-dir/grafana.tar.gz not found in cache"
+      #       exit 1
+      #     fi
+
+      # - name: Set artifact name
+      #   run: echo "artifact=grafana-server-${{github.run_number}}" >> "$GITHUB_OUTPUT"
+      #   id: artifact
+
+      # - name: Upload grafana.tar.gz
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     retention-days: 1
+      #     name: grafana-tar-gz
+      #     path: build-dir/grafana.tar.gz
+
+      # - name: Upload grafana docker tarball
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     retention-days: 1
+      #     name: grafana-docker-tar-gz
+      #     path: build-dir/grafana.docker.tar.gz
 
   build-grafana:
     needs: detect-changes
@@ -44,6 +131,7 @@ jobs:
     runs-on: ubuntu-latest-16-cores
     permissions:
       contents: read
+      id-token: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -58,32 +146,35 @@ jobs:
           key: "build-grafana-${{ runner.os }}-${{ hashFiles('yarn.lock', 'public/*',  'packages/*', 'pkg/**/*.go', '**/go.mod', '**/go.sum', '!**_test.go', '!**.test.ts', '!**.test.tsx', 'Dockerfile') }}"
           path: |
             build-dir
+            
+      - name: Login to DockerHub
+        uses: grafana/shared-workflows/actions/dockerhub-login@dockerhub-login/v1.0.2
 
       # If no cache hit, build Grafana
       - name: Build Grafana
-        if: steps.cache.outputs.cache-hit != 'true'
+        # if: steps.cache.outputs.cache-hit != 'true'
         uses: dagger/dagger-for-github@e47aba410ef9bb9ed81a4d2a97df31061e5e842e
         with:
           verb: run
           args: go run ./pkg/build/cmd artifacts -a targz:grafana:linux/amd64 -a docker:grafana:linux/amd64 --grafana-dir="${PWD}" > out.txt
       - name: Cat built artifact
-        if: steps.cache.outputs.cache-hit != 'true'
+        # if: steps.cache.outputs.cache-hit != 'true'
         run: cat out.txt
       - name: Move built artifacts
-        if: steps.cache.outputs.cache-hit != 'true'
+        # if: steps.cache.outputs.cache-hit != 'true'
         run: |
           mkdir -p build-dir
           mv "$(grep 'grafana_.*tar.gz$' out.txt | grep -Fv -m1 'docker')" build-dir/grafana.tar.gz
           mv "$(grep 'grafana_.*docker.tar.gz$' out.txt)" build-dir/grafana.docker.tar.gz
 
-      # If cache hit, validate the artifact is present
-      - name: Validate artifact
-        if: steps.cache.outputs.cache-hit == 'true'
-        run: |
-          if [ ! -f build-dir/grafana.tar.gz ]; then
-            echo "Error: build-dir/grafana.tar.gz not found in cache"
-            exit 1
-          fi
+      # # If cache hit, validate the artifact is present
+      # - name: Validate artifact
+      #   if: steps.cache.outputs.cache-hit == 'true'
+      #   run: |
+      #     if [ ! -f build-dir/grafana.tar.gz ]; then
+      #       echo "Error: build-dir/grafana.tar.gz not found in cache"
+      #       exit 1
+      #     fi
 
       - name: Set artifact name
         run: echo "artifact=grafana-server-${{github.run_number}}" >> "$GITHUB_OUTPUT"
@@ -288,14 +379,21 @@ jobs:
   run-playwright-tests:
     needs:
       - build-grafana
-    name: Playwright E2E tests (${{ matrix.shard }}/${{ matrix.shardTotal }})
-    runs-on: ubuntu-latest-8-cores
+    name: PW ${{ matrix.shard }}/${{ matrix.runner }}
+    runs-on: ${{ matrix.runner }}
     permissions:
       contents: read
+      id-token: write
 
     strategy:
       fail-fast: false
       matrix:
+        runner:
+          - ubuntu-latest-8-cores
+          - ubuntu-x64
+          - ubuntu-x64-large
+          - ubuntu-x64-xlarge
+          - ubuntu-x64-2xlarge
         shard: [1, 2, 3, 4, 5, 6, 7, 8]
         shardTotal: [8]
 
@@ -306,17 +404,30 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: grafana-tar-gz
+      - name: Start Dagger engine
+        run: |
+          docker run -d --rm \
+            -v /var/lib/dagger \
+            -v /etc/buildkitd.toml:/etc/dagger/engine.toml \
+            --name dagger-engine-v0.18.14 \
+            --privileged \
+            registry.dagger.io/engine:v0.18.14
       - name: Run E2E tests
         uses: dagger/dagger-for-github@e47aba410ef9bb9ed81a4d2a97df31061e5e842e
         with:
           verb: run
           args: go run ./pkg/build/e2e-playwright --package=grafana.tar.gz --shard=${{ matrix.shard }}/${{ matrix.shardTotal }} --blob-dir=./blob-report
+      - name: Login to DockerHub
+        uses: grafana/shared-workflows/actions/dockerhub-login@dockerhub-login/v1.0.2
       - uses: actions/upload-artifact@v4
         if: success() || failure()
         with:
-          name: playwright-blob-${{ github.run_number }}-${{ matrix.shard }}
+          name: playwright-blob-${{ github.run_number }}-${{ matrix.shard }}-${{ matrix.runner }}
           path: ./blob-report
           retention-days: 1
+      - name: Stop Engine
+        run: docker stop -t 300 $(docker ps --filter name="dagger-engine-*" -q)
+        if: always()
 
   required-playwright-tests:
     needs:
