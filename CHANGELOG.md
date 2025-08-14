@@ -1,3 +1,13 @@
+<!-- openGauss/8.4.2 START -->
+
+# openGauss/8.4.2 (2025-08-14)
+
+### Features and enhancements
+
+- **Storage:** Adapt to openGauss database and support multi IP configuration of the openGauss database
+- **Safe:** Close web source map for safe
+
+<!-- openGauss/8.4.2 END -->
 <!-- 8.4.1 START -->
 
 # 8.4.1 (2022-02-18)
