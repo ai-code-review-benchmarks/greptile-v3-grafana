@@ -37,7 +37,6 @@ import (
 	"github.com/grafana/grafana/pkg/middleware"
 	"github.com/grafana/grafana/pkg/modules"
 	servicetracing "github.com/grafana/grafana/pkg/modules/tracing"
-	"github.com/grafana/grafana/pkg/plugins"
 	"github.com/grafana/grafana/pkg/registry"
 	"github.com/grafana/grafana/pkg/registry/apis/datasource"
 	secret "github.com/grafana/grafana/pkg/registry/apis/secret/contracts"
@@ -102,10 +101,6 @@ type service struct {
 	storageStatus     dualwrite.Service
 	kvStore           kvstore.KVStore
 
-	pluginClient       plugins.Client
-	datasources        datasource.ScopedPluginDatasourceProvider
-	contextProvider    datasource.PluginContextWrapper
-	pluginStore        pluginstore.Store
 	unified            resource.ResourceClient
 	secrets            secret.InlineSecureValueSupport
 	restConfigProvider RestConfigProvider
@@ -125,10 +120,6 @@ func ProvideService(
 	serverLockService *serverlock.ServerLockService,
 	db db.DB,
 	kvStore kvstore.KVStore,
-	pluginClient plugins.Client,
-	datasources datasource.ScopedPluginDatasourceProvider,
-	contextProvider datasource.PluginContextWrapper,
-	pluginStore pluginstore.Store,
 	storageStatus dualwrite.Service,
 	unified resource.ResourceClient,
 	secrets secret.InlineSecureValueSupport,
@@ -156,10 +147,6 @@ func ProvideService(
 		db:                                db, // For Unified storage
 		metrics:                           reg,
 		kvStore:                           kvStore,
-		pluginClient:                      pluginClient,
-		datasources:                       datasources,
-		contextProvider:                   contextProvider,
-		pluginStore:                       pluginStore,
 		serverLockService:                 serverLockService,
 		storageStatus:                     storageStatus,
 		unified:                           unified,
@@ -291,6 +278,7 @@ func (s *service) start(ctx context.Context) error {
 	groupVersions = append(groupVersions, additionalGroupVersions...)
 
 	o := grafanaapiserveroptions.NewOptions(s.codecs.LegacyCodec(groupVersions...))
+	appinstaller.RegisterOptions(o, s.appInstallers)
 
 	// Register authorizers from app installers
 	appinstaller.RegisterAuthorizers(ctx, s.appInstallers, s.authorizer)
@@ -512,11 +500,11 @@ func (s *service) startDataplaneAggregator(
 	config := &dataplaneaggregator.Config{
 		GenericConfig: serverConfig,
 		ExtraConfig: dataplaneaggregator.ExtraConfig{
-			PluginClient: s.pluginClient,
+			//PluginClient:          s.pluginClient,
 			PluginContextProvider: &pluginContextProvider{
-				pluginStore:     s.pluginStore,
-				datasources:     s.datasources,
-				contextProvider: s.contextProvider,
+				//pluginStore:     s.pluginStore,
+				//datasources:     s.datasources,
+				//contextProvider: s.contextProvider,
 			},
 		},
 	}
