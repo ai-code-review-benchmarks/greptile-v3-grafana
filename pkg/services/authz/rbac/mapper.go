@@ -67,9 +67,9 @@ type MapperRegistry interface {
 	GetAll(group string) []Mapping
 }
 
-type mapper map[string]map[string]translation
+type mapper map[string]map[string]Mapping
 
-func newResourceTranslation(resource string, attribute string, folderSupport bool) translation {
+func newResourceTranslation(resource string, attribute string, folderSupport bool) Mapping {
 	defaultMapping := func(r string) map[string]string {
 		return map[string]string{
 			utils.VerbGet:              fmt.Sprintf("%s:read", r),
@@ -94,7 +94,7 @@ func newResourceTranslation(resource string, attribute string, folderSupport boo
 }
 
 func NewMapperRegistry() MapperRegistry {
-	mapper := mapper(map[string]map[string]translation{
+	mapper := mapper(map[string]map[string]Mapping{
 		"dashboard.grafana.app": {
 			"dashboards": newResourceTranslation("dashboards", "uid", true),
 		},
@@ -120,6 +120,7 @@ func NewMapperRegistry() MapperRegistry {
 				},
 				folderSupport: false,
 			},
+			"resourcepermissions": newResourceTranslation("resourcepermissions", "uid", false),
 		},
 		"secret.grafana.app": {
 			"securevalues": newResourceTranslation("secret.securevalues", "uid", false),
@@ -148,13 +149,12 @@ func (m mapper) Get(group, resource string) (Mapping, bool) {
 	if !ok {
 		return nil, false
 	}
-
 	t, ok := resources[resource]
 	if !ok {
 		return nil, false
 	}
 
-	return &t, true
+	return t, true
 }
 
 func (m mapper) GetAll(group string) []Mapping {
@@ -165,7 +165,7 @@ func (m mapper) GetAll(group string) []Mapping {
 
 	translations := make([]Mapping, 0, len(resources))
 	for _, t := range resources {
-		translations = append(translations, &t)
+		translations = append(translations, t)
 	}
 
 	return translations

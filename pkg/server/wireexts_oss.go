@@ -8,6 +8,7 @@ import (
 	"github.com/google/wire"
 
 	"github.com/grafana/grafana/pkg/configprovider"
+
 	"github.com/grafana/grafana/pkg/infra/metrics"
 	"github.com/grafana/grafana/pkg/infra/tracing"
 	"github.com/grafana/grafana/pkg/plugins"
@@ -27,6 +28,7 @@ import (
 	"github.com/grafana/grafana/pkg/services/accesscontrol"
 	"github.com/grafana/grafana/pkg/services/accesscontrol/acimpl"
 	"github.com/grafana/grafana/pkg/services/accesscontrol/ossaccesscontrol"
+
 	"github.com/grafana/grafana/pkg/services/anonymous"
 	"github.com/grafana/grafana/pkg/services/anonymous/anonimpl"
 	"github.com/grafana/grafana/pkg/services/anonymous/validator"
@@ -153,6 +155,8 @@ var wireExtsBasicSet = wire.NewSet(
 	secret.ProvideSecureValueClient,
 	provisioningExtras,
 	configProviderExtras,
+	// Resource permissions store for IAM API
+	ProvideResourcePermissionsStore,
 )
 
 var wireExtsSet = wire.NewSet(
