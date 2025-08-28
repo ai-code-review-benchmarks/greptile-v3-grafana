@@ -1,6 +1,6 @@
 import { css } from '@emotion/css';
 import { useEffect, useRef, useState } from 'react';
-import { Controller, FormProvider, SubmitHandler, useForm, useFormContext } from 'react-hook-form';
+import { Controller, FormProvider, SubmitHandler, useForm, useFormContext, useWatch } from 'react-hook-form';
 
 import { ContactPointSelector } from '@grafana/alerting/unstable';
 import { GrafanaTheme2 } from '@grafana/data';
@@ -35,7 +35,8 @@ import {
 import { PopupCard } from '../../components/HoverCard';
 import { RulesViewModeSelector } from '../../components/rules/Filter/RulesViewModeSelector';
 import {
-  useAlertingDataSourceOptions,
+  useDMARulesSourceOptions,
+  useGMAQueryDataSourceOptions,
   useLabelOptions,
   useNamespaceAndGroupOptions,
 } from '../../components/rules/Filter/useRuleFilterAutocomplete';
@@ -240,20 +241,26 @@ const FilterOptions = ({ onSubmit, onClear, pluginsFilterEnabled }: FilterOption
 
   const defaultValues = searchQueryToDefaultValues(filterState);
 
-  // Fetch namespace and group data from all sources (optimized for filter UI)
-  const { namespaceOptions, allGroupNames, isLoadingNamespaces, namespacePlaceholder, groupPlaceholder } =
-    useNamespaceAndGroupOptions();
-
-  const { labelOptions, isLoadingGrafanaLabels } = useLabelOptions();
-
-  // Create label options for the multi-select dropdown
-  const dataSourceOptions = useAlertingDataSourceOptions();
-
   // turn the filterState into form default values
   const methods = useForm<AdvancedFilters>({
     defaultValues,
   });
   const { handleSubmit, reset } = methods;
+
+  // Reactively watch selected data sources and only query externals when present
+  const selectedDataSourceNamesRaw = useWatch({ control: methods.control, name: 'dataSourceNames' });
+  const selectedDataSourceNames: string[] = Array.isArray(selectedDataSourceNamesRaw) ? selectedDataSourceNamesRaw : [];
+
+  // Fetch namespace and group data from selected sources (optimized for filter UI)
+  const { namespaceOptions, allGroupNames, isLoadingNamespaces, namespacePlaceholder, groupPlaceholder } =
+    useNamespaceAndGroupOptions(selectedDataSourceNames);
+
+  const { labelOptions, isLoadingGrafanaLabels } = useLabelOptions();
+
+  // DMA datasource options (Prom-compatible + Loki + Grafana)
+  const dmaRulesSourceOptions = useDMARulesSourceOptions();
+  // GMA query datasource options (alerting-compatible, manage alerts ON)
+  const gmaQueryDsOptions = useGMAQueryDataSourceOptions();
 
   // Update form values when filterState changes (e.g., when popup reopens)
   useEffect(() => {
@@ -300,7 +307,12 @@ const FilterOptions = ({ onSubmit, onClear, pluginsFilterEnabled }: FilterOption
               isLoadingNamespaces={isLoadingNamespaces}
               portalContainer={portalContainer}
             />
-            <DataSourceNamesField dataSourceOptions={dataSourceOptions} portalContainer={portalContainer} />
+            <DmaRulesSourceField dataSourceOptions={dmaRulesSourceOptions} portalContainer={portalContainer} />
+            <GmaQueryDataSourceField
+              dataSourceOptions={gmaQueryDsOptions}
+              portalContainer={portalContainer}
+              dependentOnGrafanaSelection
+            />
             {canRenderContactPointSelector && <ContactPointField portalContainer={portalContainer} />}
             <RuleStateField />
             <RuleTypeField />
@@ -452,7 +464,7 @@ function GroupField({
   );
 }
 
-function DataSourceNamesField({
+function DmaRulesSourceField({
   dataSourceOptions,
   portalContainer,
 }: {
@@ -501,6 +513,7 @@ function DataSourceNamesField({
         control={control}
         render={({ field }) => (
           <MultiCombobox
+            data-testid="dma-datasource-picker"
             options={dataSourceOptions}
             value={field.value}
             onChange={(selections) => field.onChange(selections.map((s) => s.value))}
@@ -509,6 +522,73 @@ function DataSourceNamesField({
             width="auto"
             minWidth={40}
             maxWidth={80}
+          />
+        )}
+      />
+    </>
+  );
+}
+
+function GmaQueryDataSourceField({
+  dataSourceOptions,
+  portalContainer,
+  dependentOnGrafanaSelection = true,
+}: {
+  dataSourceOptions: Array<{ label?: string; value: string }>;
+  portalContainer?: HTMLElement;
+  dependentOnGrafanaSelection?: boolean;
+}) {
+  const { control } = useFormContext<AdvancedFilters>();
+  const selectedDataSources = useWatch<AdvancedFilters, 'dataSourceNames'>({ control, name: 'dataSourceNames' }) ?? [];
+  const grafanaSelected = selectedDataSources.includes('grafana');
+  const disabled = dependentOnGrafanaSelection && !grafanaSelected;
+
+  return (
+    <>
+      <Label>
+        <Stack gap={0.5} alignItems="center">
+          <span>
+            <Trans i18nKey="alerting.search.property.gma-data-source">GMA Datasource query</Trans>
+          </span>
+          <Tooltip
+            content={
+              <div>
+                <p>
+                  <Trans i18nKey="alerting.rules-filter.gma-query-ds.tooltip.what">
+                    Filters Grafana-managed alert rules by the datasources referenced in their queries.
+                  </Trans>
+                </p>
+                <p>
+                  <Trans i18nKey="alerting.rules-filter.gma-query-ds.tooltip.disabled">
+                    This filter is only available when Grafana is selected in the Datasource picker.
+                  </Trans>
+                </p>
+              </div>
+            }
+          >
+            <Icon
+              name="info-circle"
+              size="sm"
+              title={t('alerting.rules-filter.gma-query-ds.tooltip.title', 'GMA datasource query help')}
+            />
+          </Tooltip>
+        </Stack>
+      </Label>
+      <Controller
+        name="gmaQueryDataSourceNames"
+        control={control}
+        render={({ field }) => (
+          <MultiCombobox
+            data-testid="gma-datasource-picker"
+            options={dataSourceOptions}
+            value={field.value || []}
+            onChange={(selections) => field.onChange(selections.map((s) => s.value))}
+            placeholder={t('alerting.rules-filter.placeholder-gma-data-sources', 'Select Grafana query datasources')}
+            portalContainer={portalContainer}
+            width="auto"
+            minWidth={40}
+            maxWidth={80}
+            disabled={disabled}
           />
         )}
       />
