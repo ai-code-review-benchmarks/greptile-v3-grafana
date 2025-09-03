@@ -1,10 +1,8 @@
 import { render as rtlRender, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse, http } from 'msw';
-import { ComponentProps } from 'react';
 import * as React from 'react';
 import { useParams } from 'react-router-dom-v5-compat';
-import AutoSizer from 'react-virtualized-auto-sizer';
 import { TestProvider } from 'test/helpers/TestProvider';
 
 import { selectors } from '@grafana/e2e-selectors';
@@ -27,24 +25,6 @@ jest.mock('@grafana/runtime', () => ({
     unifiedAlertingEnabled: true,
   },
 }));
-
-jest.mock('react-virtualized-auto-sizer', () => {
-  return {
-    __esModule: true,
-    default(props: ComponentProps<typeof AutoSizer>) {
-      return (
-        <div>
-          {props.children({
-            width: 800,
-            scaledWidth: 800,
-            scaledHeight: 600,
-            height: 600,
-          })}
-        </div>
-      );
-    },
-  };
-});
 
 jest.mock('react-router-dom-v5-compat', () => ({
   ...jest.requireActual('react-router-dom-v5-compat'),
