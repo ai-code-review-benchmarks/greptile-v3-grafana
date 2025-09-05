@@ -51,6 +51,11 @@ func (a *serviceAdapter) run(ctx context.Context) error {
 	if err != nil && !errors.Is(err, context.Canceled) {
 		return err
 	}
+	// If the service returned context.Canceled, the context is already done,
+	// so we don't need to wait for it again, but we should still return the error.
+	if errors.Is(err, context.Canceled) {
+		return err
+	}
 	// wait for context cancellation to transition to Stopping state.
 	// this prevents the service from causing it's dependents to stop prematurely.
 	<-ctx.Done()
