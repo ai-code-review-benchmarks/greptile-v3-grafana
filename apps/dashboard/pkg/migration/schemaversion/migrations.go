@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	MIN_VERSION    = 13
+	MIN_VERSION    = 12
 	LATEST_VERSION = 41
 
 	// The pluginVersion to set after simulating auto-migrate for angular panels
@@ -38,6 +38,7 @@ type PanelPluginInfo struct {
 
 func GetMigrations(dsInfoProvider DataSourceInfoProvider) map[int]SchemaVersionMigrationFunc {
 	return map[int]SchemaVersionMigrationFunc{
+		13: V13,
 		14: V14,
 		15: V15,
 		16: V16,
