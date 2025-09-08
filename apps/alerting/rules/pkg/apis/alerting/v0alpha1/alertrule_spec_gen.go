@@ -53,13 +53,9 @@ func NewAlertRuleIntervalTrigger() *AlertRuleIntervalTrigger {
 // +k8s:openapi-gen=true
 type AlertRulePromDuration string
 
-// TODO(@moustafab): validate regex for mute time interval ref
+// TODO(@moustafab): validate regex for time interval ref
 // +k8s:openapi-gen=true
-type AlertRuleMuteTimeIntervalRef string
-
-// TODO(@moustafab): validate regex for active time interval ref
-// +k8s:openapi-gen=true
-type AlertRuleActiveTimeIntervalRef string
+type AlertRuleTimeIntervalRef string
 
 // +k8s:openapi-gen=true
 type AlertRuleTemplateString string
@@ -92,13 +88,13 @@ func NewAlertRuleSpec() *AlertRuleSpec {
 
 // +k8s:openapi-gen=true
 type AlertRuleV0alpha1SpecNotificationSettings struct {
-	Receiver            string                           `json:"receiver"`
-	GroupBy             []string                         `json:"groupBy,omitempty"`
-	GroupWait           *string                          `json:"groupWait,omitempty"`
-	GroupInterval       *string                          `json:"groupInterval,omitempty"`
-	RepeatInterval      *string                          `json:"repeatInterval,omitempty"`
-	MuteTimeIntervals   []AlertRuleMuteTimeIntervalRef   `json:"muteTimeIntervals,omitempty"`
-	ActiveTimeIntervals []AlertRuleActiveTimeIntervalRef `json:"activeTimeIntervals,omitempty"`
+	Receiver            string                     `json:"receiver"`
+	GroupBy             []string                   `json:"groupBy,omitempty"`
+	GroupWait           *AlertRulePromDuration     `json:"groupWait,omitempty"`
+	GroupInterval       *AlertRulePromDuration     `json:"groupInterval,omitempty"`
+	RepeatInterval      *AlertRulePromDuration     `json:"repeatInterval,omitempty"`
+	MuteTimeIntervals   []AlertRuleTimeIntervalRef `json:"muteTimeIntervals,omitempty"`
+	ActiveTimeIntervals []AlertRuleTimeIntervalRef `json:"activeTimeIntervals,omitempty"`
 }
 
 // NewAlertRuleV0alpha1SpecNotificationSettings creates a new AlertRuleV0alpha1SpecNotificationSettings object.

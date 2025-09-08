@@ -1,3 +1,4 @@
+// TODO: many strings need to be validated as having the appropriate minimum length using strings.minRunes(n)
 package v0alpha1
 
 import "time"

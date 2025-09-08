@@ -5,9 +5,7 @@ import "strings"
 NoDataState:  *"NoData" | "Ok" | "Alerting" | "KeepLast"
 ExecErrState: *"Error" | "Ok" | "Alerting" | "KeepLast"
 
-#MuteTimeIntervalRef: string // TODO(@moustafab): validate regex for mute time interval ref
-
-#ActiveTimeIntervalRef: string // TODO(@moustafab): validate regex for active time interval ref
+#TimeIntervalRef: string // TODO(@moustafab): validate regex for time interval ref
 
 // FIXME: the For and KeepFiringFor types should be using the AlertRulePromDuration type, but there seems to be an issue with the generator
 
@@ -25,7 +23,7 @@ AlertRuleSpec: #RuleSpec & {
 }
 
 #PanelRef: {
-	dashboardUID: string & strings.MinRunes(1)
+	dashboardUID: string & strings.MinRunes(1) & =~"^[a-zA-Z0-9_-]+$"
 	panelID:      int & >0
 }
 
@@ -33,9 +31,9 @@ AlertRuleSpec: #RuleSpec & {
 #NotificationSettings: {
 	receiver: string
 	groupBy?: [...string]
-	groupWait?:      string
-	groupInterval?:  string
-	repeatInterval?: string
-	muteTimeIntervals?: [...#MuteTimeIntervalRef]
-	activeTimeIntervals?: [...#ActiveTimeIntervalRef]
+	groupWait?:      #PromDuration
+	groupInterval?:  #PromDuration
+	repeatInterval?: #PromDuration
+	muteTimeIntervals?: [...#TimeIntervalRef]
+	activeTimeIntervals?: [...#TimeIntervalRef]
 }

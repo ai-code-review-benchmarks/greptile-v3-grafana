@@ -94,8 +94,16 @@ spec:
                                         type: string
                                     type: array
                                 groupInterval:
+                                    allOf:
+                                        - pattern: ^((([0-9]+)y)?(([0-9]+)w)?(([0-9]+)d)?(([0-9]+)h)?(([0-9]+)m)?(([0-9]+)s)?|0)$
+                                        - not:
+                                            pattern: hmuµn
                                     type: string
                                 groupWait:
+                                    allOf:
+                                        - pattern: ^((([0-9]+)y)?(([0-9]+)w)?(([0-9]+)d)?(([0-9]+)h)?(([0-9]+)m)?(([0-9]+)s)?|0)$
+                                        - not:
+                                            pattern: hmuµn
                                     type: string
                                 muteTimeIntervals:
                                     items:
@@ -104,6 +112,10 @@ spec:
                                 receiver:
                                     type: string
                                 repeatInterval:
+                                    allOf:
+                                        - pattern: ^((([0-9]+)y)?(([0-9]+)w)?(([0-9]+)d)?(([0-9]+)h)?(([0-9]+)m)?(([0-9]+)s)?|0)$
+                                        - not:
+                                            pattern: hmuµn
                                     type: string
                             required:
                                 - receiver
@@ -112,6 +124,7 @@ spec:
                             properties:
                                 dashboardUID:
                                     minLength: 1
+                                    pattern: ^[a-zA-Z0-9_-]+$
                                     type: string
                                 panelID:
                                     exclusiveMinimum: true

@@ -5,10 +5,7 @@ import (
 )
 
 alertRuleKind: {
-	kind: "AlertRule"
-	apiResource: {
-		groupOverride: "rules.alerting.grafana.app"
-	}
+	kind:       "AlertRule"
 	pluralName: "AlertRules"
 }
 

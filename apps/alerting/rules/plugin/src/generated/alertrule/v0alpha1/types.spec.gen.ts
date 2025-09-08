@@ -52,15 +52,10 @@ export type PromDuration = string;
 
 export const defaultPromDuration = (): PromDuration => ("");
 
-// TODO(@moustafab): validate regex for mute time interval ref
-export type MuteTimeIntervalRef = string;
+// TODO(@moustafab): validate regex for time interval ref
+export type TimeIntervalRef = string;
 
-export const defaultMuteTimeIntervalRef = (): MuteTimeIntervalRef => ("");
-
-// TODO(@moustafab): validate regex for active time interval ref
-export type ActiveTimeIntervalRef = string;
-
-export const defaultActiveTimeIntervalRef = (): ActiveTimeIntervalRef => ("");
+export const defaultTimeIntervalRef = (): TimeIntervalRef => ("");
 
 export type TemplateString = string;
 
@@ -79,11 +74,11 @@ export interface Spec {
 	notificationSettings?: {
 		receiver: string;
 		groupBy?: string[];
-		groupWait?: string;
-		groupInterval?: string;
-		repeatInterval?: string;
-		muteTimeIntervals?: MuteTimeIntervalRef[];
-		activeTimeIntervals?: ActiveTimeIntervalRef[];
+		groupWait?: PromDuration;
+		groupInterval?: PromDuration;
+		repeatInterval?: PromDuration;
+		muteTimeIntervals?: TimeIntervalRef[];
+		activeTimeIntervals?: TimeIntervalRef[];
 	};
 	annotations?: Record<string, TemplateString>;
 	labels?: Record<string, TemplateString>;

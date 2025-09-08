@@ -5,10 +5,7 @@ import (
 )
 
 recordingRuleKind: {
-	kind: "RecordingRule"
-	apiResource: {
-		groupOverride: "rules.alerting.grafana.app"
-	}
+	kind:       "RecordingRule"
 	pluralName: "RecordingRules"
 }
 

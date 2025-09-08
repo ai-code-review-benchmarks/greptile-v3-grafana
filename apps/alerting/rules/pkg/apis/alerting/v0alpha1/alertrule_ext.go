@@ -18,6 +18,7 @@ func (o *AlertRule) SetProvenanceStatus(status string) {
 	if status == "" {
 		status = ProvenanceStatusNone
 	}
+	// FIXME: make sure it is a valid status
 	o.Annotations[ProvenanceStatusAnnotationKey] = status
 }
 
