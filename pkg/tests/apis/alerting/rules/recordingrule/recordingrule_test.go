@@ -188,7 +188,6 @@ func TestIntegrationAccessControl(t *testing.T) {
 			read, err := adminClient.Get(ctx, created.Name, v1.GetOptions{})
 			require.NoError(t, err)
 			require.Equal(t, created.Spec.Title, read.Spec.Title)
-
 		})
 
 		t.Run("admin should be able to update recording rule", func(t *testing.T) {
