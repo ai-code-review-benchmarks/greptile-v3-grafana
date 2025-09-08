@@ -3,6 +3,8 @@ package recordingrule
 import (
 	"context"
 	"errors"
+	"fmt"
+	"slices"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/internalversion"
@@ -227,10 +229,11 @@ func (s *legacyStorage) Delete(ctx context.Context, name string, deleteValidatio
 		return nil, false, k8serrors.NewBadRequest("expected valid recording rule object")
 	}
 
-	provenance := ngmodels.Provenance(p.GetProvenanceStatus())
-	if provenance == "" {
-		provenance = ngmodels.ProvenanceNone
+	sourceProv := p.GetProvenanceStatus()
+	if !slices.Contains(model.AcceptedProvenanceStatuses, sourceProv) {
+		return nil, false, fmt.Errorf("invalid provenance status: %s", sourceProv)
 	}
+	provenance := ngmodels.Provenance(sourceProv)
 
 	err = s.service.DeleteAlertRule(ctx, user, name, provenance)
 	if err != nil {

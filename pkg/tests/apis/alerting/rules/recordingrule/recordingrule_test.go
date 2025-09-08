@@ -188,6 +188,7 @@ func TestIntegrationAccessControl(t *testing.T) {
 			read, err := adminClient.Get(ctx, created.Name, v1.GetOptions{})
 			require.NoError(t, err)
 			require.Equal(t, created.Spec.Title, read.Spec.Title)
+
 		})
 
 		t.Run("admin should be able to update recording rule", func(t *testing.T) {
@@ -235,7 +236,8 @@ func TestIntegrationCRUD(t *testing.T) {
 			ObjectMeta: v1.ObjectMeta{
 				Namespace: "default",
 				Annotations: map[string]string{
-					"grafana.app/folder": "test-folder",
+					"grafana.app/folder":     "test-folder",
+					"grafana.app/provenance": "",
 				},
 			},
 			Spec: v0alpha1.RecordingRuleSpec{
@@ -270,10 +272,49 @@ func TestIntegrationCRUD(t *testing.T) {
 			createdDuration, err := prom_model.ParseDuration(string(recordingRule.Spec.Trigger.Interval))
 			require.NoError(t, err)
 			require.Equal(t, createdDuration.String(), string(get.Spec.Trigger.Interval))
+
+			provenance := get.GetProvenanceStatus()
+			require.Equal(t, v0alpha1.ProvenanceStatusNone, provenance)
 		})
 
 		// Cleanup
 		require.NoError(t, adminClient.Delete(ctx, created.Name, v1.DeleteOptions{}))
+	})
+
+	t.Run("should fail to create recording rule with invalid provenance status", func(t *testing.T) {
+		rule := baseGen.Generate()
+
+		recordingRule := &v0alpha1.RecordingRule{
+			ObjectMeta: v1.ObjectMeta{
+				Namespace: "default",
+				Annotations: map[string]string{
+					"grafana.app/folder":     "test-folder",
+					"grafana.app/provenance": "invalid",
+				},
+			},
+			Spec: v0alpha1.RecordingRuleSpec{
+				Title:  rule.Title,
+				Metric: rule.Record.Metric,
+				Data: map[string]v0alpha1.RecordingRuleQuery{
+					"A": {
+						QueryType:     "query",
+						DatasourceUID: v0alpha1.RecordingRuleDatasourceUID(rule.Data[0].DatasourceUID),
+						Model:         rule.Data[0].Model,
+						Source:        util.Pointer(true),
+						RelativeTimeRange: &v0alpha1.RecordingRuleRelativeTimeRange{
+							From: v0alpha1.RecordingRulePromDurationWMillis("5m"),
+							To:   v0alpha1.RecordingRulePromDurationWMillis("0s"),
+						},
+					},
+				},
+				Trigger: v0alpha1.RecordingRuleIntervalTrigger{
+					Interval: v0alpha1.RecordingRulePromDuration(fmt.Sprintf("%ds", rule.IntervalSeconds)),
+				},
+			},
+		}
+
+		_, err := adminClient.Create(ctx, recordingRule, v1.CreateOptions{})
+		require.Error(t, err, "Creating invalid rule should fail")
 	})
 
 	t.Run("should fail to create recording rule with invalid config", func(t *testing.T) {

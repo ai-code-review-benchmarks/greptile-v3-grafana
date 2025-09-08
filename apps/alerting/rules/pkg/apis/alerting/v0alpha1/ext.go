@@ -5,5 +5,13 @@ const (
 	GroupLabelKey                 = InternalPrefix + "group"
 	GroupIndexLabelKey            = GroupLabelKey + "-index"
 	ProvenanceStatusAnnotationKey = InternalPrefix + "provenance"
-	ProvenanceStatusNone          = "none"
+)
+
+const (
+	ProvenanceStatusNone = ""
+	ProvenanceStatusAPI  = "api"
+)
+
+var (
+	AcceptedProvenanceStatuses = []string{ProvenanceStatusNone, ProvenanceStatusAPI}
 )

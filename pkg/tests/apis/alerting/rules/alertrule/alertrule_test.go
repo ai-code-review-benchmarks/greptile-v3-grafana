@@ -235,7 +235,8 @@ func TestIntegrationCRUD(t *testing.T) {
 			ObjectMeta: v1.ObjectMeta{
 				Namespace: "default",
 				Annotations: map[string]string{
-					"grafana.app/folder": "test-folder",
+					"grafana.app/folder":     "test-folder",
+					"grafana.app/provenance": "",
 				},
 			},
 			Spec: v0alpha1.AlertRuleSpec{
@@ -272,10 +273,50 @@ func TestIntegrationCRUD(t *testing.T) {
 			createdDuration, err := prom_model.ParseDuration(string(alertRule.Spec.Trigger.Interval))
 			require.NoError(t, err)
 			require.Equal(t, createdDuration.String(), string(get.Spec.Trigger.Interval))
+
+			provenance := get.GetProvenanceStatus()
+			require.Equal(t, v0alpha1.ProvenanceStatusNone, provenance)
 		})
 
 		// Cleanup
 		require.NoError(t, adminClient.Delete(ctx, created.Name, v1.DeleteOptions{}))
+	})
+
+	t.Run("should fail to create rule with invalid provenance status", func(t *testing.T) {
+		rule := baseGen.Generate()
+
+		alertRule := &v0alpha1.AlertRule{
+			ObjectMeta: v1.ObjectMeta{
+				Namespace: "default",
+				Annotations: map[string]string{
+					"grafana.app/folder":     "test-folder",
+					"grafana.app/provenance": "invalid",
+				},
+			},
+			Spec: v0alpha1.AlertRuleSpec{
+				Title: rule.Title,
+				Data: map[string]v0alpha1.AlertRuleQuery{
+					"A": {
+						QueryType:     "query",
+						DatasourceUID: v0alpha1.AlertRuleDatasourceUID(rule.Data[0].DatasourceUID),
+						Model:         rule.Data[0].Model,
+						Source:        util.Pointer(true),
+						RelativeTimeRange: &v0alpha1.AlertRuleRelativeTimeRange{
+							From: v0alpha1.AlertRulePromDurationWMillis("5m"),
+							To:   v0alpha1.AlertRulePromDurationWMillis("0s"),
+						},
+					},
+				},
+				Trigger: v0alpha1.AlertRuleIntervalTrigger{
+					Interval: v0alpha1.AlertRulePromDuration(fmt.Sprintf("%ds", rule.IntervalSeconds)),
+				},
+				NoDataState:  string(rule.NoDataState),
+				ExecErrState: string(rule.ExecErrState),
+			},
+		}
+
+		_, err := adminClient.Create(ctx, alertRule, v1.CreateOptions{})
+		require.Error(t, err, "Creating invalid rule should fail")
 	})
 
 	t.Run("should fail to create rule with invalid config", func(t *testing.T) {

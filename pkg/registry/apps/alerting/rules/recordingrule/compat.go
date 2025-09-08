@@ -3,6 +3,7 @@ package recordingrule
 import (
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strconv"
 	"time"
 
@@ -130,10 +131,11 @@ func convertToDomainModel(orgID int64, k8sRule *model.RecordingRule) (*ngmodels.
 	if err != nil {
 		return nil, ngmodels.ProvenanceNone, fmt.Errorf("failed to convert to domain model: %w", err)
 	}
-	provenance := ngmodels.Provenance(k8sRule.GetProvenanceStatus())
-	if provenance == "" {
-		provenance = ngmodels.ProvenanceNone
+	sourceProv := k8sRule.GetProvenanceStatus()
+	if !slices.Contains(model.AcceptedProvenanceStatuses, sourceProv) {
+		return nil, ngmodels.ProvenanceNone, fmt.Errorf("invalid provenance status: %s", sourceProv)
 	}
+	provenance := ngmodels.Provenance(sourceProv)
 	return domainRule, provenance, nil
 }
 

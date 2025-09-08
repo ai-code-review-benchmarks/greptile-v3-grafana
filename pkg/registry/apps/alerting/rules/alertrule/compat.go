@@ -3,6 +3,7 @@ package alertrule
 import (
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strconv"
 	"time"
 
@@ -142,7 +143,9 @@ func convertToK8sResource(
 	meta.SetUpdatedTimestamp(&rule.Updated)
 	k8sRule.SetUpdateTimestamp(rule.Updated)
 
-	k8sRule.SetProvenanceStatus(string(provenance))
+	if err := k8sRule.SetProvenanceStatus(string(provenance)); err != nil {
+		return nil, fmt.Errorf("failed to set provenance status: %w", err)
+	}
 
 	// FIXME: we don't have a creation timestamp in the domain model, so we can't set it here.
 	// We should consider adding it to the domain model. Migration can set it to the Updated timestamp for existing
@@ -181,10 +184,11 @@ func convertToDomainModel(orgID int64, k8sRule *model.AlertRule) (*ngmodels.Aler
 	if err != nil {
 		return nil, ngmodels.ProvenanceNone, fmt.Errorf("failed to convert to domain model: %w", err)
 	}
-	provenance := ngmodels.Provenance(k8sRule.GetProvenanceStatus())
-	if provenance == "" {
-		provenance = ngmodels.ProvenanceNone
+	sourceProv := k8sRule.GetProvenanceStatus()
+	if !slices.Contains(model.AcceptedProvenanceStatuses, sourceProv) {
+		return nil, ngmodels.ProvenanceNone, fmt.Errorf("invalid provenance status: %s", sourceProv)
 	}
+	provenance := ngmodels.Provenance(sourceProv)
 	return domainRule, provenance, nil
 }
 
