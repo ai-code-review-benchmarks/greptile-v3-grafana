@@ -87,7 +87,7 @@ func TestIntegrationRecordingRuleCompatCreateViaK8s(t *testing.T) {
 	require.NotNil(t, created)
 
 	t.Run("should be able to use the provisioning API with this rule", func(t *testing.T) {
-		retrievedRule, status, _ := legacyClient.GetProvisioningAlertRule(t, string(created.UID))
+		retrievedRule, status, _ := legacyClient.GetProvisioningAlertRule(t, created.Name)
 		require.NotNil(t, retrievedRule)
 		require.Equal(t, 200, status)
 		require.Equal(t, created.Spec.Title, retrievedRule.Title)
@@ -122,7 +122,7 @@ func TestIntegrationRecordingRuleCompatCreateViaK8s(t *testing.T) {
 		_, status, data := legacyClient.CreateOrUpdateRuleGroupProvisioning(t, groupNameUpdate)
 		require.Equalf(t, 400, status, "Expected status 400 when changing group name, got %d. Data: %s", status, data)
 		// verify the group name didn't
-		retrievedRule, status, _ = legacyClient.GetProvisioningAlertRule(t, string(created.UID))
+		retrievedRule, status, _ = legacyClient.GetProvisioningAlertRule(t, created.Name)
 		require.NotNil(t, retrievedRule)
 		require.Equal(t, 200, status)
 		require.Equal(t, group.Title, retrievedRule.RuleGroup)
@@ -136,7 +136,7 @@ func TestIntegrationRecordingRuleCompatCreateViaK8s(t *testing.T) {
 		require.Equal(t, groupUpdate.Rules[0].Title, updatedRule.Rules[0].Title)
 
 		// verify the change is reflected in k8s
-		k8sRetrievedRule, err := k8sClient.Get(ctx, string(created.UID), v1.GetOptions{})
+		k8sRetrievedRule, err := k8sClient.Get(ctx, created.Name, v1.GetOptions{})
 		require.NoError(t, err)
 		require.NotNil(t, k8sRetrievedRule)
 		require.Equal(t, updatedRule.Rules[0].Title, k8sRetrievedRule.Spec.Title)
@@ -145,7 +145,7 @@ func TestIntegrationRecordingRuleCompatCreateViaK8s(t *testing.T) {
 		status, body := legacyClient.DeleteRulesGroupProvisioning(t, group.FolderUID, group.Title)
 		require.Equalf(t, 204, status, "Expected status 200 when deleting rule group, got %d. Body: %s", status, body)
 		// verify the rule is deleted in k8s
-		_, err = k8sClient.Get(ctx, string(created.UID), v1.GetOptions{})
+		_, err = k8sClient.Get(ctx, created.Name, v1.GetOptions{})
 		require.Error(t, err, "Expected error when getting deleted rule")
 		require.Contains(t, err.Error(), "not found")
 	})

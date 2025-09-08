@@ -69,13 +69,15 @@ func convertToK8sResource(
 			QueryType:     query.QueryType,
 			Model:         query.Model,
 			DatasourceUID: model.RecordingRuleDatasourceUID(query.DatasourceUID),
-			Source:        util.Pointer(rule.Condition == query.RefID),
 		}
 		if time.Duration(query.RelativeTimeRange.From) > 0 || time.Duration(query.RelativeTimeRange.To) > 0 {
 			k8sQuery.RelativeTimeRange = &model.RecordingRuleRelativeTimeRange{
 				From: model.RecordingRulePromDurationWMillis(query.RelativeTimeRange.From.String()),
 				To:   model.RecordingRulePromDurationWMillis(query.RelativeTimeRange.To.String()),
 			}
+		}
+		if rule.Record != nil && rule.Record.From == query.RefID {
+			k8sQuery.Source = util.Pointer(true)
 		}
 		k8sRule.Spec.Data[query.RefID] = k8sQuery
 	}
@@ -212,13 +214,13 @@ func convertToBaseDomainModel(orgID int64, k8sRule *model.RecordingRule) (*ngmod
 		domainRule.Data = append(domainRule.Data, domainQuery)
 
 		if query.Source != nil && *query.Source {
-			if domainRule.Condition != "" {
-				return nil, fmt.Errorf("multiple queries marked as source: %s and %s", domainRule.Condition, refID)
+			if domainRule.Record.From != "" {
+				return nil, fmt.Errorf("multiple queries marked as source: %s and %s", domainRule.Record.From, refID)
 			}
-			domainRule.Condition = refID
+			domainRule.Record.From = refID
 		}
 	}
-	if domainRule.Condition == "" {
+	if domainRule.Record.From == "" {
 		return nil, fmt.Errorf("no query marked as source")
 	}
 	return domainRule, nil
