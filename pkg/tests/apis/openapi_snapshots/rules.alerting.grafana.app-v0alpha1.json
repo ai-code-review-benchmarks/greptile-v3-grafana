@@ -2497,10 +2497,30 @@
                 }
               },
               "groupInterval": {
-                "type": "string"
+                "type": "string",
+                "allOf": [
+                  {
+                    "pattern": "^((([0-9]+)y)?(([0-9]+)w)?(([0-9]+)d)?(([0-9]+)h)?(([0-9]+)m)?(([0-9]+)s)?|0)$"
+                  },
+                  {
+                    "not": {
+                      "pattern": "hmuµn"
+                    }
+                  }
+                ]
               },
               "groupWait": {
-                "type": "string"
+                "type": "string",
+                "allOf": [
+                  {
+                    "pattern": "^((([0-9]+)y)?(([0-9]+)w)?(([0-9]+)d)?(([0-9]+)h)?(([0-9]+)m)?(([0-9]+)s)?|0)$"
+                  },
+                  {
+                    "not": {
+                      "pattern": "hmuµn"
+                    }
+                  }
+                ]
               },
               "muteTimeIntervals": {
                 "type": "array",
@@ -2512,7 +2532,17 @@
                 "type": "string"
               },
               "repeatInterval": {
-                "type": "string"
+                "type": "string",
+                "allOf": [
+                  {
+                    "pattern": "^((([0-9]+)y)?(([0-9]+)w)?(([0-9]+)d)?(([0-9]+)h)?(([0-9]+)m)?(([0-9]+)s)?|0)$"
+                  },
+                  {
+                    "not": {
+                      "pattern": "hmuµn"
+                    }
+                  }
+                ]
               }
             }
           },
@@ -2525,7 +2555,8 @@
             "properties": {
               "dashboardUID": {
                 "type": "string",
-                "minLength": 1
+                "minLength": 1,
+                "pattern": "^[a-zA-Z0-9_-]+$"
               },
               "panelID": {
                 "type": "integer",
