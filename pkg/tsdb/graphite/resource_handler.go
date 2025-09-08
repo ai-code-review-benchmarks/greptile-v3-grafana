@@ -1,6 +1,7 @@
 package graphite
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -16,17 +17,19 @@ import (
 	"go.opentelemetry.io/otel/codes"
 )
 
-type resourceHandler[T any] func(context.Context, *datasourceInfo, T) ([]byte, int, error)
+type postResourceHandler[T any] func(context.Context, *datasourceInfo, T) ([]byte, int, error)
+type getResourceHandler func(context.Context, *datasourceInfo) ([]byte, int, error)
 
 func (s *Service) newResourceMux() *http.ServeMux {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/events", handleResourceReq[GraphiteEventsRequest](s.handleEvents, s))
-	mux.HandleFunc("/metrics/find", handleResourceReq[GraphiteMetricsFindRequest](s.handleMetricsFind, s))
-	mux.HandleFunc("/metrics/expand", handleResourceReq[GraphiteMetricsFindRequest](s.handleMetricsExpand, s))
+	mux.HandleFunc("/events", handlePostResourceReq(s.handleEvents, s))
+	mux.HandleFunc("/metrics/find", handlePostResourceReq(s.handleMetricsFind, s))
+	mux.HandleFunc("/metrics/expand", handlePostResourceReq(s.handleMetricsExpand, s))
+	mux.HandleFunc("/functions", handleGetResourceReq(s.handleFunctions, s))
 	return mux
 }
 
-func handleResourceReq[T any](handlerFn resourceHandler[T], s *Service) func(rw http.ResponseWriter, req *http.Request) {
+func handlePostResourceReq[T any](handlerFn postResourceHandler[T], s *Service) func(rw http.ResponseWriter, req *http.Request) {
 	return func(rw http.ResponseWriter, req *http.Request) {
 		s.logger.Debug("Received resource call", "url", req.URL.String(), "method", req.Method)
 
@@ -40,7 +43,7 @@ func handleResourceReq[T any](handlerFn resourceHandler[T], s *Service) func(rw 
 
 		defer func() {
 			if err := req.Body.Close(); err != nil {
-				s.logger.Warn("Failed to close response body", "err", err)
+				s.logger.Warn("Failed to close request body", "err", err)
 				writeErrorResponse(rw, http.StatusInternalServerError, fmt.Sprintf("unexpected error %v", err))
 				return
 			}
@@ -78,6 +81,38 @@ func handleResourceReq[T any](handlerFn resourceHandler[T], s *Service) func(rw 
 	}
 }
 
+func handleGetResourceReq(handlerFn getResourceHandler, s *Service) func(rw http.ResponseWriter, req *http.Request) {
+	return func(rw http.ResponseWriter, req *http.Request) {
+		s.logger.Debug("Received resource call", "url", req.URL.String(), "method", req.Method)
+
+		pluginCtx := backend.PluginConfigFromContext(req.Context())
+		ctx := req.Context()
+		dsInfo, err := s.getDSInfo(ctx, pluginCtx)
+		if err != nil {
+			writeErrorResponse(rw, http.StatusInternalServerError, fmt.Sprintf("unexpected error %v", err))
+			return
+		}
+
+		if handlerFn == nil {
+			writeErrorResponse(rw, http.StatusInternalServerError, "responseFn should not be nil")
+			return
+		}
+
+		response, statusCode, err := handlerFn(ctx, dsInfo)
+		if err != nil {
+			writeErrorResponse(rw, statusCode, fmt.Sprintf("failed to handle resource request: %v", err))
+			return
+		}
+
+		rw.WriteHeader(statusCode)
+		_, err = rw.Write(response)
+		if err != nil {
+			writeErrorResponse(rw, http.StatusInternalServerError, fmt.Sprintf("failed to write response: %v", err))
+			return
+		}
+	}
+}
+
 func (s *Service) handleEvents(ctx context.Context, dsInfo *datasourceInfo, eventsRequestJson GraphiteEventsRequest) ([]byte, int, error) {
 	eventsUrl, err := url.Parse(fmt.Sprintf("%s/events/get_data", dsInfo.URL))
 	if err != nil {
@@ -93,7 +128,7 @@ func (s *Service) handleEvents(ctx context.Context, dsInfo *datasourceInfo, even
 
 	eventsUrl.RawQuery = queryValues.Encode()
 
-	events, statusCode, err := doGraphiteRequest[[]GraphiteEventsResponse](ctx, "events", dsInfo, eventsUrl, http.MethodGet, nil, map[string]string{}, s.logger)
+	events, _, statusCode, err := doGraphiteRequest[[]GraphiteEventsResponse](ctx, "events", dsInfo, eventsUrl, http.MethodGet, nil, map[string]string{}, s.logger, false)
 	if err != nil {
 		return nil, statusCode, fmt.Errorf("events request failed: %v", err)
 	}
@@ -130,7 +165,7 @@ func (s *Service) handleMetricsFind(ctx context.Context, dsInfo *datasourceInfo,
 	data := url.Values{}
 	data.Set("query", metricsFindRequestJson.Query)
 
-	metrics, statusCode, err := doGraphiteRequest[[]GraphiteMetricsFindResponse](ctx, "metrics find", dsInfo, metricsFindUrl, http.MethodPost, strings.NewReader(data.Encode()), map[string]string{"Content-Type": "application/x-www-form-urlencoded"}, s.logger)
+	metrics, _, statusCode, err := doGraphiteRequest[[]GraphiteMetricsFindResponse](ctx, "metrics find", dsInfo, metricsFindUrl, http.MethodPost, strings.NewReader(data.Encode()), map[string]string{"Content-Type": "application/x-www-form-urlencoded"}, s.logger, false)
 	if err != nil {
 		return nil, statusCode, fmt.Errorf("metrics find request failed: %v", err)
 	}
@@ -163,7 +198,7 @@ func (s *Service) handleMetricsExpand(ctx context.Context, dsInfo *datasourceInf
 	}
 	metricsExpandUrl.RawQuery = queryValues.Encode()
 
-	metrics, statusCode, err := doGraphiteRequest[GraphiteMetricsExpandResponse](ctx, "metrics expand", dsInfo, metricsExpandUrl, http.MethodGet, nil, map[string]string{}, s.logger)
+	metrics, _, statusCode, err := doGraphiteRequest[GraphiteMetricsExpandResponse](ctx, "metrics expand", dsInfo, metricsExpandUrl, http.MethodGet, nil, map[string]string{}, s.logger, false)
 	if err != nil {
 		return nil, statusCode, fmt.Errorf("metrics expand request failed: %v", err)
 	}
@@ -183,11 +218,30 @@ func (s *Service) handleMetricsExpand(ctx context.Context, dsInfo *datasourceInf
 	return metricsExpandResponse, statusCode, nil
 }
 
-func doGraphiteRequest[T any](ctx context.Context, endpoint string, dsInfo *datasourceInfo, url *url.URL, method string, body io.Reader, headers map[string]string, logger log.Logger) (*T, int, error) {
+func (s *Service) handleFunctions(ctx context.Context, dsInfo *datasourceInfo) ([]byte, int, error) {
+	functionsUrl, err := url.Parse(fmt.Sprintf("%s/functions", dsInfo.URL))
+	if err != nil {
+		return nil, http.StatusInternalServerError, fmt.Errorf("unexpected error %v", err)
+	}
+
+	_, rawBody, statusCode, err := doGraphiteRequest[map[string]any](ctx, "functions", dsInfo, functionsUrl, http.MethodGet, nil, map[string]string{}, s.logger, true)
+	if err != nil {
+		return nil, statusCode, fmt.Errorf("version request failed: %v", err)
+	}
+
+	if rawBody == nil {
+		return []byte{}, statusCode, nil
+	}
+
+	rawBodyReplaced := bytes.Replace(*rawBody, []byte("\"default\": Infinity"), []byte("\"default\": 1e9999"), -1)
+	return rawBodyReplaced, statusCode, nil
+}
+
+func doGraphiteRequest[T any](ctx context.Context, endpoint string, dsInfo *datasourceInfo, url *url.URL, method string, body io.Reader, headers map[string]string, logger log.Logger, rawResponse bool) (*T, *[]byte, int, error) {
 	graphiteReq, err := http.NewRequestWithContext(ctx, method, url.String(), body)
 	if err != nil {
 		logger.Info(fmt.Sprintf("Failed to create %s request", endpoint), "error", err)
-		return nil, http.StatusInternalServerError, fmt.Errorf("failed to create %s request: %v", endpoint, err)
+		return nil, nil, http.StatusInternalServerError, fmt.Errorf("failed to create %s request: %v", endpoint, err)
 	}
 
 	for k, v := range headers {
@@ -206,7 +260,7 @@ func doGraphiteRequest[T any](ctx context.Context, endpoint string, dsInfo *data
 	if err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, err.Error())
-		return nil, http.StatusInternalServerError, fmt.Errorf("failed to complete %s request: %v", endpoint, err)
+		return nil, nil, http.StatusInternalServerError, fmt.Errorf("failed to complete %s request: %v", endpoint, err)
 	}
 
 	defer func() {
@@ -216,12 +270,12 @@ func doGraphiteRequest[T any](ctx context.Context, endpoint string, dsInfo *data
 		}
 	}()
 
-	parsedResponse, err := parseResponse[T](res)
+	parsedResponse, rawBody, err := parseResponse[T](res, rawResponse, logger)
 	if err != nil {
-		return nil, http.StatusInternalServerError, fmt.Errorf("failed to parse %s response: %v", endpoint, err)
+		return nil, nil, res.StatusCode, fmt.Errorf("failed to parse %s response: %v", endpoint, err)
 	}
 
-	return parsedResponse, res.StatusCode, nil
+	return parsedResponse, rawBody, res.StatusCode, nil
 }
 
 func parseRequestBody[V any](requestBody []byte, logger log.Logger) (*V, error) {
@@ -234,19 +288,28 @@ func parseRequestBody[V any](requestBody []byte, logger log.Logger) (*V, error) 
 	return requestJson, nil
 }
 
-func parseResponse[V any](res *http.Response) (*V, error) {
+func parseResponse[V any](res *http.Response, raw bool, logger log.Logger) (*V, *[]byte, error) {
 	encoding := res.Header.Get("Content-Encoding")
 	body, err := decode(encoding, res.Body)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read response: %v", err)
+		return nil, nil, fmt.Errorf("failed to read response: %v", err)
+	}
+
+	if res.StatusCode/100 != 2 {
+		logger.Warn("Request failed", "status", res.Status, "body", string(body))
+		return nil, nil, fmt.Errorf("request failed, status: %d", res.StatusCode)
+	}
+
+	if raw {
+		return nil, &body, nil
 	}
 
 	data := new(V)
 	err = json.Unmarshal(body, &data)
 	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal response: %v", err)
+		return nil, nil, fmt.Errorf("failed to unmarshal response: %v", err)
 	}
-	return data, nil
+	return data, nil, nil
 }
 
 func writeErrorResponse(rw http.ResponseWriter, code int, msg string) {
