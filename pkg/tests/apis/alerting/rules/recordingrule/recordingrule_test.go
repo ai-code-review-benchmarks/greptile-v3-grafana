@@ -391,6 +391,78 @@ func TestIntegrationCRUD(t *testing.T) {
 		// Cleanup
 		require.NoError(t, adminClient.Delete(ctx, created.Name, v1.DeleteOptions{}))
 	})
+
+	t.Run("should not be able to create rule without any source query", func(t *testing.T) {
+		rule := baseGen.Generate()
+
+		recordingRule := &v0alpha1.RecordingRule{
+			ObjectMeta: v1.ObjectMeta{
+				Namespace: "default",
+				Annotations: map[string]string{
+					"grafana.app/folder": "test-folder",
+				},
+			},
+			Spec: v0alpha1.RecordingRuleSpec{
+				Title:  rule.Title,
+				Metric: rule.Record.Metric,
+				Data: map[string]v0alpha1.RecordingRuleQuery{
+					"A": {
+						QueryType:     "query",
+						DatasourceUID: v0alpha1.RecordingRuleDatasourceUID(rule.Data[0].DatasourceUID),
+						Model:         rule.Data[0].Model,
+						RelativeTimeRange: &v0alpha1.RecordingRuleRelativeTimeRange{
+							From: v0alpha1.RecordingRulePromDurationWMillis("5m"),
+							To:   v0alpha1.RecordingRulePromDurationWMillis("0s"),
+						},
+					},
+				},
+				Trigger: v0alpha1.RecordingRuleIntervalTrigger{
+					Interval: v0alpha1.RecordingRulePromDuration(fmt.Sprintf("%ds", rule.IntervalSeconds)),
+				},
+			},
+		}
+
+		created, err := adminClient.Create(ctx, recordingRule, v1.CreateOptions{})
+		require.ErrorContains(t, err, "no query marked as source")
+		require.Nil(t, created)
+	})
+	t.Run("should not be able to create rule with interval less than base", func(t *testing.T) {
+		rule := baseGen.With(
+			ngmodels.RuleMuts.WithInterval(time.Duration(1) * time.Second),
+		).Generate()
+
+		recordingRule := &v0alpha1.RecordingRule{
+			ObjectMeta: v1.ObjectMeta{
+				Namespace: "default",
+				Annotations: map[string]string{
+					"grafana.app/folder": "test-folder",
+				},
+			},
+			Spec: v0alpha1.RecordingRuleSpec{
+				Title:  rule.Title,
+				Metric: rule.Record.Metric,
+				Data: map[string]v0alpha1.RecordingRuleQuery{
+					"A": {
+						QueryType:     "query",
+						DatasourceUID: v0alpha1.RecordingRuleDatasourceUID(rule.Data[0].DatasourceUID),
+						Model:         rule.Data[0].Model,
+						Source:        util.Pointer(true),
+						RelativeTimeRange: &v0alpha1.RecordingRuleRelativeTimeRange{
+							From: v0alpha1.RecordingRulePromDurationWMillis("5m"),
+							To:   v0alpha1.RecordingRulePromDurationWMillis("0s"),
+						},
+					},
+				},
+				Trigger: v0alpha1.RecordingRuleIntervalTrigger{
+					Interval: v0alpha1.RecordingRulePromDuration(fmt.Sprintf("%ds", rule.IntervalSeconds)),
+				},
+			},
+		}
+
+		created, err := adminClient.Create(ctx, recordingRule, v1.CreateOptions{})
+		require.ErrorContains(t, err, "invalid alert rule")
+		require.Nil(t, created)
+	})
 }
 
 func TestIntegrationPatch(t *testing.T) {
@@ -495,6 +567,3 @@ func TestIntegrationBasicAPI(t *testing.T) {
 		t.Logf("Got error: %s", err)
 	})
 }
-
-// TODO: add a test to cover: Also, there is a bug. When I submit a rule with provisioned annotation "none", it sets it as provisioned
-// add test for checking no source marked as true
