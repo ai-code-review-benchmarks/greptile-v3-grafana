@@ -459,3 +459,7 @@ func TestIntegrationBasicAPI(t *testing.T) {
 		t.Logf("Got error: %s", err)
 	})
 }
+
+// TODO: add a test to cover: Also, there is a bug. When I submit a rule with provisioned annotation "none", it sets it as provisioned
+// add test for checking no source marked as true
+// add test for : When I create a rule with interval of 1s it's silently updated to 1m

@@ -73,7 +73,7 @@ func (s *legacyStorage) List(ctx context.Context, opts *internalversion.ListOpti
 		return nil, err
 	}
 
-	return ConvertToK8sResources(info.OrgID, rules, provenanceMap, s.namespacer, continueToken)
+	return convertToK8sResources(info.OrgID, rules, provenanceMap, s.namespacer, continueToken)
 }
 
 func (s *legacyStorage) Get(ctx context.Context, name string, _ *metav1.GetOptions) (runtime.Object, error) {
@@ -95,7 +95,7 @@ func (s *legacyStorage) Get(ctx context.Context, name string, _ *metav1.GetOptio
 		return nil, err
 	}
 
-	obj, err := ConvertToK8sResource(info.OrgID, &rule, provenance, s.namespacer)
+	obj, err := convertToK8sResource(info.OrgID, &rule, provenance, s.namespacer)
 	if err != nil && errors.Is(err, errInvalidRule) {
 		return nil, k8serrors.NewNotFound(ResourceInfo.GroupResource(), name)
 	}
@@ -121,15 +121,12 @@ func (s *legacyStorage) Create(ctx context.Context, obj runtime.Object, _ rest.V
 	if p.GenerateName != "" {
 		return nil, k8serrors.NewBadRequest("generate-name is not supported in legacy storage mode")
 	}
-	if p.Name != "" {
-		p.UID = types.UID(p.Name)
-	}
 	// TODO: move this to the validation function
 	if p.Labels[model.GroupLabelKey] != "" || p.Labels[model.GroupIndexLabelKey] != "" {
 		return nil, k8serrors.NewBadRequest("cannot set group label when creating recording rule")
 	}
 
-	model, provenance, err := ConvertToDomainModel(info.OrgID, p)
+	model, provenance, err := convertToDomainModel(info.OrgID, p)
 	if err != nil {
 		return nil, err
 	}
@@ -139,7 +136,7 @@ func (s *legacyStorage) Create(ctx context.Context, obj runtime.Object, _ rest.V
 		return nil, err
 	}
 
-	return ConvertToK8sResource(info.OrgID, &rule, provenance, s.namespacer)
+	return convertToK8sResource(info.OrgID, &rule, provenance, s.namespacer)
 }
 
 func (s *legacyStorage) Update(ctx context.Context, name string, objInfo rest.UpdatedObjectInfo, _ rest.ValidateObjectFunc, updateValidation rest.ValidateObjectUpdateFunc, _ bool, options *metav1.UpdateOptions) (runtime.Object, bool, error) {
@@ -186,7 +183,7 @@ func (s *legacyStorage) Update(ctx context.Context, name string, objInfo rest.Up
 		return nil, false, k8serrors.NewBadRequest("cannot set group label when updating un-grouped recording rule")
 	}
 
-	model, provenance, err := ConvertToDomainModel(info.OrgID, new)
+	model, provenance, err := convertToDomainModel(info.OrgID, new)
 	if err != nil {
 		return nil, false, err
 	}
@@ -202,7 +199,7 @@ func (s *legacyStorage) Update(ctx context.Context, name string, objInfo rest.Up
 		return nil, false, err
 	}
 
-	rule, err := ConvertToK8sResource(info.OrgID, &updated, provenance, s.namespacer)
+	rule, err := convertToK8sResource(info.OrgID, &updated, provenance, s.namespacer)
 	if err != nil {
 		return nil, false, err
 	}

@@ -9,18 +9,18 @@ import (
 	model "github.com/grafana/grafana/apps/alerting/rules/pkg/apis/alerting/v0alpha1"
 	"github.com/grafana/grafana/pkg/apimachinery/utils"
 	"github.com/grafana/grafana/pkg/services/apiserver/endpoints/request"
+	gapiutil "github.com/grafana/grafana/pkg/services/apiserver/utils"
 	ngmodels "github.com/grafana/grafana/pkg/services/ngalert/models"
 	"github.com/grafana/grafana/pkg/util"
 	prom_model "github.com/prometheus/common/model"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 )
 
 var (
 	errInvalidRule = fmt.Errorf("rule is not a recording rule")
 )
 
-func ConvertToK8sResource(
+func convertToK8sResource(
 	orgID int64,
 	rule *ngmodels.AlertRule,
 	provenance ngmodels.Provenance,
@@ -35,7 +35,6 @@ func ConvertToK8sResource(
 	}
 	k8sRule := &model.RecordingRule{
 		ObjectMeta: metav1.ObjectMeta{
-			UID:             types.UID(rule.UID),
 			Name:            rule.UID,
 			Namespace:       namespaceMapper(orgID),
 			ResourceVersion: fmt.Sprint(rule.Version),
@@ -98,10 +97,11 @@ func ConvertToK8sResource(
 	// We should consider adding it to the domain model. Migration can set it to the Updated timestamp for existing
 	// k8sRule.SetCreationTimestamp(rule.)
 
+	k8sRule.UID = gapiutil.CalculateClusterWideUID(k8sRule)
 	return k8sRule, nil
 }
 
-func ConvertToK8sResources(
+func convertToK8sResources(
 	orgID int64,
 	rules []*ngmodels.AlertRule,
 	provenanceMap map[string]ngmodels.Provenance,
@@ -116,7 +116,7 @@ func ConvertToK8sResources(
 	}
 	for _, rule := range rules {
 		provenance := provenanceMap[rule.UID]
-		k8sRule, err := ConvertToK8sResource(orgID, rule, provenance, namespaceMapper)
+		k8sRule, err := convertToK8sResource(orgID, rule, provenance, namespaceMapper)
 		if err != nil {
 			return nil, fmt.Errorf("failed to convert to k8s resource: %w", err)
 		}
@@ -125,8 +125,8 @@ func ConvertToK8sResources(
 	return k8sRules, nil
 }
 
-func ConvertToDomainModel(orgID int64, k8sRule *model.RecordingRule) (*ngmodels.AlertRule, ngmodels.Provenance, error) {
-	domainRule, err := convertToDomainModel(orgID, k8sRule)
+func convertToDomainModel(orgID int64, k8sRule *model.RecordingRule) (*ngmodels.AlertRule, ngmodels.Provenance, error) {
+	domainRule, err := convertToBaseDomainModel(orgID, k8sRule)
 	if err != nil {
 		return nil, ngmodels.ProvenanceNone, fmt.Errorf("failed to convert to domain model: %w", err)
 	}
@@ -137,13 +137,10 @@ func ConvertToDomainModel(orgID int64, k8sRule *model.RecordingRule) (*ngmodels.
 	return domainRule, provenance, nil
 }
 
-func convertToDomainModel(orgID int64, k8sRule *model.RecordingRule) (*ngmodels.AlertRule, error) {
-	if k8sRule.UID != types.UID(k8sRule.Name) {
-		return nil, fmt.Errorf("object name (%s) does not match object UID (%s)", k8sRule.Name, k8sRule.UID)
-	}
+func convertToBaseDomainModel(orgID int64, k8sRule *model.RecordingRule) (*ngmodels.AlertRule, error) {
 	domainRule := &ngmodels.AlertRule{
 		OrgID:    orgID,
-		UID:      string(k8sRule.UID),
+		UID:      k8sRule.Name,
 		Title:    k8sRule.Spec.Title,
 		Data:     make([]ngmodels.AlertQuery, 0, len(k8sRule.Spec.Data)),
 		IsPaused: k8sRule.Spec.Paused != nil && *k8sRule.Spec.Paused,
@@ -216,6 +213,9 @@ func convertToDomainModel(orgID int64, k8sRule *model.RecordingRule) (*ngmodels.
 			}
 			domainRule.Condition = refID
 		}
+	}
+	if domainRule.Condition == "" {
+		return nil, fmt.Errorf("no query marked as source")
 	}
 	return domainRule, nil
 }
