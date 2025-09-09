@@ -20,9 +20,9 @@ import { Box, Stack, useStyles2 } from '@grafana/ui';
 import { PanelEditControls } from '../panel-edit/PanelEditControls';
 import { getDashboardSceneFor } from '../utils/utils';
 
+import { DashboardControlsMenu } from './DashboardControlsMenu';
 import { DashboardLinksControls } from './DashboardLinksControls';
 import { DashboardScene } from './DashboardScene';
-import { DropdownVariableControls } from './DropdownVariableControls';
 import { VariableControls } from './VariableControls';
 
 export interface DashboardControlsState extends SceneObjectState {
@@ -153,7 +153,7 @@ function DashboardControlsRenderer({ model }: SceneComponentProps<DashboardContr
         </Stack>
       )}
       <Stack>
-        <DropdownVariableControls dashboard={dashboard} />
+        <DashboardControlsMenu dashboard={dashboard} />
       </Stack>
       {showDebugger && <SceneDebugger scene={model} key={'scene-debugger'} />}
     </div>
