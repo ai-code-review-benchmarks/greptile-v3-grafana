@@ -298,16 +298,20 @@ groupByNode(summarize(movingAverage(apps.$app.$server.counters.requests.count, 5
 ## Add ad hoc filters
 
 _Ad hoc filters_ are one of the most complex and flexible variable options available.
-Instead of a regular list of variable options, this variable allows you to build a dashboard-wide ad hoc query.
+Instead of creating a variable for each dimension by which you want to filter, ad hoc filters automatically create variables (key/value pairs) for all the dimensions returned by your data source query.
+This allows you to build dashboard-wide ad hoc queries.
 
 Ad hoc filters let you add label/value filters that are automatically added to all metric queries that use the specified data source.
 Unlike other variables, you don't use ad hoc filters in queries.
 Instead, you use ad hoc filters to write filters for existing queries.
 
-{{< admonition type="note" >}}
-Not all data sources support ad hoc filters.
-Examples of those that do include Prometheus, Loki, InfluxDB, and Elasticsearch.
-{{< /admonition >}}
+The following data sources support ad hoc filters:
+
+- Prometheus
+- Loki
+- InfluxDB
+- Elasticsearch
+- OpenSearch
 
 To create an ad hoc filter, follow these steps:
 
@@ -323,6 +327,36 @@ To create an ad hoc filter, follow these steps:
 1. Click **Back to dashboard** and **Exit edit**.
 
 Now you can [filter data on the dashboard](ref:filter-dashboard).
+
+### Panel filtering with ad hoc filters
+
+In table visualizations, you can apply ad hoc filters from the visualization with one click.
+To quickly ad hoc filter variables, follow these steps:
+
+1. Hover your cursor over the cell with the value you want to filter for to display the filter icons. In this example, the cell value is `ConfigMap Updated`, which is in the `alertname` column:
+
+   {{< figure src="/media/docs/grafana/panels-visualizations/screenshot-ad-hoc-filter-icon-v12.png" max-width="750px" alt="Table with ad hoc filter icon displayed on a cell" >}}
+
+1. Click the add filter icon.
+
+   The variable pair `alertname = ConfigMap Updated` is added to the ad hoc filter and all panels using the same data source that include that variable value are filtered by that value:
+
+   {{< figure src="/media/docs/grafana/panels-visualizations/screenshot-ad-hoc-filter-applied-v12.2.png" max-width="750px" alt="Two tables, filtered" >}}
+
+If one of the panels in the dashboard using that data source doesn't include that variable value, the panel won't return any data. In this example, the variable pair `_name_ = ALERTS` has been added to the ad hoc filter so one of the tables doesn't return any results:
+
+{{< figure src="/media/docs/grafana/panels-visualizations/screenshot-ad-hoc-filter-no-data-v12.2.png" max-width="750px" alt="Two tables, one filtered and one returning no results" >}}
+
+### Filter between dashboards
+
+You can also filter panels on another dashboard using data links, by including a variable in the link:
+
+```
+https://play.grafana.org/d/HYaGDGIMk/templating-global-variables-and-interpolation?orgId=1&from=now-6h&to=now&timezone=utc&var-Server=CCC&var-MyCustomDashboardVariable=Hello%20World%21
+```
+
+In the preceding example, the variables and values are `var-Server=CCC` and `var-MyCustomDashboardVariable=Hello%20World%21`.
+When someone clicks the link, they're taken to a version of the dashboard with those variables already applied.
 
 <!-- vale Grafana.Spelling = YES -->
 <!-- vale Grafana.WordList = YES -->
