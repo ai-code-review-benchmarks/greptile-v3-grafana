@@ -1143,4 +1143,9 @@ export interface FeatureToggles {
   * @default false
   */
   prometheusTypeMigration?: boolean;
+  /**
+  * Enables running plugins in containers
+  * @default false
+  */
+  pluginContainers?: boolean;
 }
