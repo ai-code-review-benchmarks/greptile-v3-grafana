@@ -1,6 +1,14 @@
 import { readFileSync } from 'fs';
 import path from 'path';
 
+import { variableAdapters } from 'app/features/variables/adapters';
+import { createConstantVariableAdapter } from 'app/features/variables/constant/adapter';
+import { createCustomVariableAdapter } from 'app/features/variables/custom/adapter';
+import { createDataSourceVariableAdapter } from 'app/features/variables/datasource/adapter';
+import { createIntervalVariableAdapter } from 'app/features/variables/interval/adapter';
+import { createQueryVariableAdapter } from 'app/features/variables/query/adapter';
+import { createTextBoxVariableAdapter } from 'app/features/variables/textbox/adapter';
+
 import { DASHBOARD_SCHEMA_VERSION } from './DashboardMigrator';
 import { DashboardModel } from './DashboardModel';
 import {
@@ -11,7 +19,7 @@ import {
   extractTargetVersionFromFilename,
   constructBackendOutputFilename,
   handleAngularPanelMigration,
-  cleanDashboardModel,
+  TEST_MIN_VERSION,
 } from './__tests__/migrationTestUtils';
 
 /*
@@ -41,6 +49,13 @@ import {
  *    - Avoids test brittleness from comparing raw JSON with different default value representations
  */
 
+variableAdapters.register(createQueryVariableAdapter());
+variableAdapters.register(createDataSourceVariableAdapter());
+variableAdapters.register(createConstantVariableAdapter());
+variableAdapters.register(createIntervalVariableAdapter());
+variableAdapters.register(createCustomVariableAdapter());
+variableAdapters.register(createTextBoxVariableAdapter());
+
 describe('Backend / Frontend single version migration result comparison', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -53,7 +68,7 @@ describe('Backend / Frontend single version migration result comparison', () => 
 
   jsonInputs
     // TODO: remove this filter when we fixed all inconsistencies
-    .filter((inputFile) => parseInt(inputFile.split('.')[0].replace('v', ''), 10) > 29)
+    .filter((inputFile) => parseInt(inputFile.split('.')[0].replace('v', ''), 10) > TEST_MIN_VERSION)
     .forEach((inputFile) => {
       // Extract target version from filename (e.g., v16.grid_layout_upgrade.json -> target v16)
       const targetVersion = extractTargetVersionFromFilename(inputFile);
@@ -90,12 +105,10 @@ describe('Backend / Frontend single version migration result comparison', () => 
 
         expect(backendOutput.schemaVersion).toEqual(targetVersion);
 
-        // Create dashboard models
+        // Migrate dashboard in Frontend.
         const frontendModel = new DashboardModel(jsonInput, undefined, {
           targetSchemaVersion: targetVersion,
-        });
-        const backendModel = new DashboardModel(backendOutput, undefined, {
-          targetSchemaVersion: targetVersion,
+          getVariablesFromState: () => jsonInput?.templating?.list ?? [],
         });
 
         // Handle angular panel migration if needed
@@ -103,10 +116,9 @@ describe('Backend / Frontend single version migration result comparison', () => 
           await handleAngularPanelMigration(frontendModel);
         }
 
-        const frontendMigrationResult = cleanDashboardModel(frontendModel);
-        const backendMigrationResult = cleanDashboardModel(backendModel);
+        const frontendMigrationResult = frontendModel.getSaveModelClone();
 
-        expect(backendMigrationResult).toEqual(frontendMigrationResult);
+        expect(backendOutput).toEqual(frontendMigrationResult);
       });
     });
 });
